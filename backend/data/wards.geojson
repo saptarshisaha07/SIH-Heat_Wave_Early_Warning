@@ -1,0 +1,125 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "BBSR-01",
+      "properties": {
+        "id": "BBSR-01",
+        "name": "Bhubaneswar Zone 01"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [85.8245, 20.2961]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "BBSR-02",
+      "properties": {
+        "id": "BBSR-02",
+        "name": "Bhubaneswar Zone 02"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [85.818, 20.355]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "BBSR-03",
+      "properties": {
+        "id": "BBSR-03",
+        "name": "Bhubaneswar Zone 03"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [85.815, 20.325]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "BBSR-04",
+      "properties": {
+        "id": "BBSR-04",
+        "name": "Bhubaneswar Zone 04"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [85.845, 20.288]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "BBSR-05",
+      "properties": {
+        "id": "BBSR-05",
+        "name": "Bhubaneswar Zone 05"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [85.866, 20.302]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "BBSR-06",
+      "properties": {
+        "id": "BBSR-06",
+        "name": "Bhubaneswar Zone 06"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [85.839, 20.27]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "BBSR-07",
+      "properties": {
+        "id": "BBSR-07",
+        "name": "Bhubaneswar Zone 07"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [85.834, 20.238]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "BBSR-08",
+      "properties": {
+        "id": "BBSR-08",
+        "name": "Bhubaneswar Zone 08"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [85.785, 20.26]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "BBSR-09",
+      "properties": {
+        "id": "BBSR-09",
+        "name": "Bhubaneswar Zone 09"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [85.858, 20.255]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "BBSR-10",
+      "properties": {
+        "id": "BBSR-10",
+        "name": "Bhubaneswar Zone 10"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [85.772, 20.283]
+      }
+    }
+  ]
+}
