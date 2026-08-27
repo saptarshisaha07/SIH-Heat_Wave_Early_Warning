@@ -52,9 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     const popupContent = `<strong>${wardId}</strong><br>${wardName}`;
                     layer.bindPopup(popupContent);
 
-                    // 8. Register click handler logging exact ward ID
+                    // 8. Register click handler logging exact ward ID and notifying app
                     layer.on('click', () => {
                         console.log(`Clicked ward: ${wardId}`);
+                        if (typeof window.handleWardMarkerClick === 'function') {
+                            window.handleWardMarkerClick(wardId);
+                        }
                     });
                 }
             }).addTo(map);
