@@ -22,11 +22,31 @@ SIH-Heat_Wave_Early_Warning/
 ├── .gitignore               # Standard Python & environment gitignore
 ├── BUILD.md                 # Agent & Developer build guide (this file)
 ├── README.md                # General project overview
+├── BUILD_TASKS/             # Individual task completion reports
+│   ├── TASK-01-fastapi.md
+│   ├── TASK-02-wards-geojson.md
+│   ├── TASK-03-vulnerability-risk-engine.md
+│   ├── TASK-04-database.md
+│   └── TASK-06-weather-fetcher.md
 └── backend/
     ├── requirements.txt     # Python dependencies
-    └── app/
-        ├── __init__.py      # Package marker
-        └── main.py          # FastAPI app entry point & route definitions
+    ├── data/
+    │   ├── wards.geojson    # 10 Bhubaneswar municipal zone coordinates
+    │   └── vulnerability.csv# Demographic vulnerability indicators per zone
+    ├── app/
+    │   ├── __init__.py      # Package marker
+    │   ├── main.py          # FastAPI app entry point & route definitions
+    │   ├── db/
+    │   │   └── session.py   # SQLAlchemy 2.0 SQLite database engine & session
+    │   ├── models/          # ORM models (Ward, WeatherReading, RiskScore, Forecast, Advisory, AlertLog)
+    │   └── services/
+    │       ├── weather_fetcher.py  # Open-Meteo current + 5-day forecast fetcher
+    │       ├── vulnerability.py    # Demographic vulnerability loader & normalizer
+    │       ├── risk_engine.py      # Base Heat Score, composite risk, and explainability breakdown
+    │       ├── advisory.py         # 5-band public health advisories
+    │       └── alerts.py           # SMS / WhatsApp simulated emergency alert builder
+    └── tests/
+        └── test_p3_risk_engine.py  # Automated test suite for risk & vulnerability calculations
 ```
 
 ### Module Layout Conventions (For Future Tasks)
@@ -74,7 +94,12 @@ When extending the backend in upcoming tasks, adhere strictly to the following d
    pip install -r requirements.txt
    ```
 
-4. **Run the Development Server**:
+4. **Run Automated Tests**:
+   ```bash
+   python -m unittest discover -s tests -p "test_*.py"
+   ```
+
+5. **Run the Development Server**:
    ```bash
    uvicorn app.main:app --reload
    ```
@@ -86,7 +111,7 @@ When extending the backend in upcoming tasks, adhere strictly to the following d
 
 | Variable Name | Required | Default Value | Description |
 | :--- | :--- | :--- | :--- |
-| *(None currently)* | No | — | Task 1 requires no environment variables. Future variables will be listed here. |
+| `DATABASE_URL` | No | `sqlite:///backend/db.sqlite3` | SQLite database URI connection string. |
 
 > **Rule for AI Agents**: If adding environment variables in future tasks:
 > 1. Use `pydantic-settings` or `python-dotenv`.
@@ -119,8 +144,18 @@ To ensure seamless multi-agent and multi-developer collaboration without merge c
 
 ## 7. Task Changelog & Status
 
-- **Task 1: Scaffolding & Health Check** *(Completed)*
-  - Initialized `backend/app/` package structure.
-  - Created `backend/app/main.py` with FastAPI instance and `GET /health` endpoint.
-  - Created `backend/requirements.txt` (`fastapi`, `uvicorn`).
-  - Added `.gitignore` and `BUILD.md`.
+- **Task 1: Scaffolding & Health Check** *(PASS)*
+  - Initialized `backend/app/` package structure and `GET /health` endpoint.
+- **Task 2: Ward GeoJSON Dataset** *(PASS)*
+  - Created GeoJSON FeatureCollection (`backend/data/wards.geojson`) for 10 Bhubaneswar zones.
+- **Task 3: Vulnerability Dataset & Multi-Factor Risk Engine (P3)** *(PASS)*
+  - Created `backend/data/vulnerability.csv` with demographic indicators for all 10 Bhubaneswar zones.
+  - Implemented `vulnerability.py` with min-max normalization into a `0.0–1.0` vulnerability index.
+  - Built `risk_engine.py` with continuous piecewise linear Base Heat Score, $+30\%$ vulnerability amplification cap, and heat-only toggle breakdown.
+  - Built `advisory.py` with 5-band public health advisories.
+  - Built `alerts.py` with SMS/WhatsApp simulation payloads.
+  - Added automated test suite `tests/test_p3_risk_engine.py` (all tests passing).
+- **Task 4: Database & ORM Setup** *(PASS)*
+  - Configured SQLite connection with SQLAlchemy 2.0 and defined 6 core ORM models.
+- **Task 6: Weather Fetcher Service** *(PARTIAL)*
+  - Built Open-Meteo live weather and 5-day forecast fetcher service.
