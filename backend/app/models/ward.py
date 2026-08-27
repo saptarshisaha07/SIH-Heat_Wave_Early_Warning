@@ -13,7 +13,7 @@ class Ward(Base):
     zone = Column(String(100), nullable=True)
     population = Column(Integer, nullable=True)
     area_sq_km = Column(Float, nullable=True)
-    vulnerability_score = Column(Float, default=0.0)
+    vulnerability_index = Column(Float, nullable=False, default=0.0)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
