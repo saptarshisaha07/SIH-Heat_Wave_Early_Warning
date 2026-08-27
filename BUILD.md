@@ -27,7 +27,8 @@ SIH-Heat_Wave_Early_Warning/
 │   ├── TASK-02-wards-geojson.md
 │   ├── TASK-03-vulnerability-risk-engine.md
 │   ├── TASK-04-database.md
-│   └── TASK-06-weather-fetcher.md
+│   ├── TASK-06-weather-fetcher.md
+│   └── TASK-07-thermal-index.md
 └── backend/
     ├── requirements.txt     # Python dependencies
     ├── data/
@@ -41,12 +42,14 @@ SIH-Heat_Wave_Early_Warning/
     │   ├── models/          # ORM models (Ward, WeatherReading, RiskScore, Forecast, Advisory, AlertLog)
     │   └── services/
     │       ├── weather_fetcher.py  # Open-Meteo current + 5-day forecast fetcher
+    │       ├── thermal_index.py    # NWS Rothfusz Heat Index & BOM WBGT thermal math
     │       ├── vulnerability.py    # Demographic vulnerability loader & normalizer
     │       ├── risk_engine.py      # Base Heat Score, composite risk, and explainability breakdown
     │       ├── advisory.py         # 5-band public health advisories
     │       └── alerts.py           # SMS / WhatsApp simulated emergency alert builder
     └── tests/
-        └── test_p3_risk_engine.py  # Automated test suite for risk & vulnerability calculations
+        ├── test_p3_risk_engine.py  # Automated test suite for risk & vulnerability calculations
+        └── test_thermal_index.py   # Automated test suite for thermal stress calculations
 ```
 
 ### Module Layout Conventions (For Future Tasks)
@@ -159,3 +162,6 @@ To ensure seamless multi-agent and multi-developer collaboration without merge c
   - Configured SQLite connection with SQLAlchemy 2.0 and defined 6 core ORM models.
 - **Task 6: Weather Fetcher Service** *(PARTIAL)*
   - Built Open-Meteo live weather and 5-day forecast fetcher service.
+- **Task 7: Thermal Index Math Service** *(PASS)*
+  - Implemented `backend/app/services/thermal_index.py` providing `heat_index()` (NOAA/NWS Rothfusz regression with Steadman mild-temperature threshold and low/high humidity adjustments) and `wbgt()` (Australian BOM outdoor simplified approximation with solar radiation adjustment).
+  - Added comprehensive automated test suite `backend/tests/test_thermal_index.py` (all tests passing).
