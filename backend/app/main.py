@@ -12,7 +12,13 @@ from app.db.session import get_db, init_db
 from app.models.ward import Ward
 from app.scheduler import ingest_all_wards_weather, shutdown_scheduler, start_scheduler
 from app.seed import seed_database
-from app.services.advisory import get_advisory
+from app.services.advisory import (
+    filter_advisories,
+    get_advisory,
+    get_all_advisories,
+    get_persona_advisory,
+    normalize_category_name,
+)
 from app.services.risk_engine import compute_composite_risk
 from app.services.thermal_index import heat_index, wbgt
 from app.services.vulnerability import get_ward_vulnerability
@@ -194,6 +200,36 @@ def get_risk_map(db: Session = Depends(get_db)) -> Dict[str, Any]:
         "type": "FeatureCollection",
         "features": features,
     }
+
+
+@app.get("/api/advisories")
+def list_advisories(
+    category: Optional[str] = None,
+    level: Optional[str] = None,
+    persona: Optional[str] = None,
+) -> Any:
+    """Retrieve public health advisories with optional filtering by category, alert level, or persona."""
+    if not category and not level and not persona:
+        return get_all_advisories()
+    return filter_advisories(category=category, level=level, persona=persona)
+
+
+@app.get("/api/advisories/{category}")
+def get_single_advisory(
+    category: str,
+    persona: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Retrieve public health advisory and action items for a specific thermal risk category."""
+    canonical = normalize_category_name(category)
+    all_advs = get_all_advisories()
+    if canonical not in all_advs:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Advisory category '{category}' not found. Valid categories: {list(all_advs.keys())}",
+        )
+    if persona:
+        return get_persona_advisory(canonical, persona)
+    return all_advs[canonical]
 
 
 # Static frontend mounting (MUST be mounted after all /api/ and other backend routes)
