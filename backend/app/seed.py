@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.db.session import SessionLocal, init_db
+from app.models.advisory import Advisory
 from app.models.ward import Ward
+from app.services.advisory import ADVISORIES, VALID_PERSONAS
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -215,7 +217,7 @@ def load_and_validate_datasets(
 def seed_database(
     geojson_path: Optional[Path] = None, csv_path: Optional[Path] = None
 ) -> None:
-    """Idempotently seed the SQLite database with ward and vulnerability data.
+    """Safely re-runnable and idempotent database seed for wards, vulnerability data, and advisories.
 
     Args:
         geojson_path: Optional custom path to wards.geojson.
@@ -232,8 +234,9 @@ def seed_database(
 
     session = SessionLocal()
     try:
-        inserted_count = 0
-        updated_count = 0
+        # 1. Upsert Wards Table
+        ward_inserted_count = 0
+        ward_updated_count = 0
 
         for item in wards_data:
             ward_id = item["ward_id"]
@@ -243,11 +246,11 @@ def seed_database(
 
             if existing_ward:
                 ward = existing_ward
-                updated_count += 1
+                ward_updated_count += 1
             else:
                 ward = Ward(ward_number=ward_id)
                 session.add(ward)
-                inserted_count += 1
+                ward_inserted_count += 1
 
             # Populate model attributes directly
             ward.name = item["ward_name"]
@@ -256,9 +259,49 @@ def seed_database(
             ward.longitude = item["longitude"]
             ward.vulnerability_index = item["vulnerability_index"]
 
+        # 2. Upsert Advisories Table
+        adv_inserted_count = 0
+        adv_updated_count = 0
+
+        for cat_name, adv_data in ADVISORIES.items():
+            for persona in VALID_PERSONAS:
+                actions_list = adv_data.get(persona, [])
+                precautions_text = "\n".join(actions_list)
+                alert_level_val = adv_data.get("alert_level", "Yellow")
+
+                existing_adv = (
+                    session.query(Advisory)
+                    .filter(
+                        Advisory.risk_level == alert_level_val,
+                        Advisory.target_audience == persona,
+                    )
+                    .first()
+                )
+
+                if existing_adv:
+                    existing_adv.title = adv_data.get("headline", "")
+                    existing_adv.description = adv_data.get("summary", "")
+                    existing_adv.precautions = precautions_text
+                    adv_updated_count += 1
+                else:
+                    new_adv = Advisory(
+                        risk_level=alert_level_val,
+                        target_audience=persona,
+                        title=adv_data.get("headline", ""),
+                        description=adv_data.get("summary", ""),
+                        precautions=precautions_text,
+                    )
+                    session.add(new_adv)
+                    adv_inserted_count += 1
+
         session.commit()
         logger.info(
-            f"Database seeding completed successfully: {inserted_count} inserted, {updated_count} updated."
+            "Database seeding completed successfully: "
+            "Wards (%d inserted, %d updated), Advisories (%d inserted, %d updated).",
+            ward_inserted_count,
+            ward_updated_count,
+            adv_inserted_count,
+            adv_updated_count,
         )
     except Exception as e:
         session.rollback()
