@@ -5,7 +5,10 @@ tailored to 5 thermal risk categories, distinct demographic cohorts, healthcare 
 and municipal response teams according to NDMA and Bhubaneswar Heat Action Plan standards.
 """
 
+import logging
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 VALID_PERSONAS = [
     "general_public",
@@ -199,9 +202,21 @@ _CATEGORY_ALIASES = {
 def normalize_category_name(name: str) -> str:
     """Normalize user/API category or alert level name to canonical key."""
     if not isinstance(name, str):
+        logger.warning(
+            "Unrecognized category input '%s' (type %s); falling back to 'Caution'",
+            name,
+            type(name).__name__,
+        )
         return "Caution"
     clean = name.strip().lower()
-    return _CATEGORY_ALIASES.get(clean, "Caution")
+    canonical = _CATEGORY_ALIASES.get(clean)
+    if canonical is None:
+        logger.warning(
+            "Unrecognized category input '%s'; falling back to 'Caution'",
+            name,
+        )
+        return "Caution"
+    return canonical
 
 
 def get_advisory(risk_category: str) -> Dict[str, Any]:
@@ -280,8 +295,16 @@ def get_persona_advisory(risk_category: str, persona: str) -> Dict[str, Any]:
         Structured persona advisory payload.
     """
     adv = get_advisory(risk_category)
-    persona_clean = persona.strip().lower()
-    actions = adv.get(persona_clean, adv["general_public"])
+    if isinstance(persona, str) and persona.strip().lower() in VALID_PERSONAS:
+        resolved_persona = persona.strip().lower()
+    else:
+        logger.warning(
+            "Unrecognized persona '%s'; falling back to 'general_public'",
+            persona,
+        )
+        resolved_persona = "general_public"
+
+    actions = adv.get(resolved_persona, adv["general_public"])
     return {
         "risk_category": adv["risk_category"],
         "alert_level": adv["alert_level"],
@@ -289,6 +312,6 @@ def get_persona_advisory(risk_category: str, persona: str) -> Dict[str, Any]:
         "heat_index_range_c": adv["heat_index_range_c"],
         "headline": adv["headline"],
         "summary": adv["summary"],
-        "persona": persona_clean,
+        "persona": resolved_persona,
         "actions": actions,
     }
