@@ -152,15 +152,16 @@ class TestP3RiskEngine(unittest.TestCase):
         self.assertEqual(sms_alert["status"], "simulated")
         self.assertIn("HEAT ALERT", sms_alert["message"])
         self.assertIn("BBSR-05", sms_alert["ward_id"])
-        self.assertIn("Rasulgarh", sms_alert["zone_name"])
+        self.assertIn("Bhubaneswar Zone 05", sms_alert["ward_name"])
 
         # Test WhatsApp Alert
         wa_alert = build_simulated_alert("BBSR-07", heat_index_c=46.5, channel="whatsapp")
         self.assertEqual(wa_alert["ward_id"], "BBSR-07")
         self.assertEqual(wa_alert["channel"], "whatsapp")
         self.assertIn("HEATWAVE EARLY WARNING NOTICE", wa_alert["message"])
-        self.assertIn("Old Town", wa_alert["message"])
+        self.assertIn("Bhubaneswar Zone 07", wa_alert["message"])
         self.assertIn("Emergency Helpline", wa_alert["message"])
+
 
 
 if __name__ == "__main__":

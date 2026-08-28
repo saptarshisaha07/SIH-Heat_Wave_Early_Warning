@@ -124,6 +124,10 @@ When extending the backend in upcoming tasks, adhere strictly to the following d
 
 | Method | Endpoint | Description | Expected Response |
 | :--- | :--- | :--- | :--- |
+| `GET` | `/` | Serves the interactive web map dashboard (`index.html`) | HTML |
+| `GET` | `/api/risk-map` | GeoJSON FeatureCollection of all 10 Bhubaneswar municipal zones | FeatureCollection JSON |
+| `GET` | `/api/wards/{id}` | Real-time weather, thermal indices, 5-day forecast, and health advisories | Ward Risk Slice JSON |
+| `POST` | `/api/refresh` | On-demand weather ingestion & risk update for all wards | Ingestion Summary JSON |
 | `GET` | `/health` | Application health check | `{"status": "ok"}` |
 | `GET` | `/docs` | Interactive Swagger API Docs | OpenAPI UI |
 | `GET` | `/redoc` | Alternative ReDoc documentation | ReDoc UI |
@@ -159,3 +163,5 @@ To ensure seamless multi-agent and multi-developer collaboration without merge c
   - Configured SQLite connection with SQLAlchemy 2.0 and defined 6 core ORM models.
 - **Task 6: Weather Fetcher Service** *(PARTIAL)*
   - Built Open-Meteo live weather and 5-day forecast fetcher service.
+
+

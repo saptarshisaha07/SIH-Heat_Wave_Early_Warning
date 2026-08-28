@@ -1,23 +1,35 @@
+import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db, init_db
 from app.models.ward import Ward
 from app.scheduler import ingest_all_wards_weather, shutdown_scheduler, start_scheduler
+from app.seed import seed_database
 from app.services.advisory import get_advisory
 from app.services.risk_engine import compute_composite_risk
 from app.services.thermal_index import heat_index, wbgt
 from app.services.vulnerability import get_ward_vulnerability
 from app.services.weather_fetcher import WeatherFetcherError, fetch_weather
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    try:
+        seed_database()
+    except Exception as exc:
+        logger.error(f"Database seeding failed on startup: {exc}")
+        raise
     start_scheduler()
     yield
     shutdown_scheduler()
@@ -152,3 +164,42 @@ def get_ward_risk_slice(
         "forecast": forecast_items,
         "advisory": advisory_data,
     }
+
+
+@app.get("/api/risk-map")
+@app.get("/api/wards")
+def get_risk_map(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Retrieve GeoJSON FeatureCollection of all wards with spatial and vulnerability data."""
+    wards = db.query(Ward).order_by(Ward.id).all()
+    features = []
+    for ward in wards:
+        features.append(
+            {
+                "type": "Feature",
+                "id": ward.ward_number,
+                "properties": {
+                    "id": ward.ward_number,
+                    "name": ward.name,
+                    "vulnerability_index": ward.vulnerability_index,
+                    "population": ward.population,
+                    "db_id": ward.id,
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [ward.longitude, ward.latitude],
+                },
+            }
+        )
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+    }
+
+
+# Static frontend mounting (MUST be mounted after all /api/ and other backend routes)
+FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
+if FRONTEND_DIR.exists():
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+else:
+    app.mount("/", StaticFiles(directory="../frontend", html=True), name="frontend")
+

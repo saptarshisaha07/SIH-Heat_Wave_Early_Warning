@@ -1,4 +1,4 @@
-﻿/**
+/**
  * API client for Bhubaneswar Heatwave Early Warning System.
  * Fetches live weather, thermal index, and composite risk data for wards.
  */
@@ -36,7 +36,7 @@ function resolveWardApiId(wardId) {
  */
 async function getWardDetails(wardId) {
     const apiId = resolveWardApiId(wardId);
-    const baseUrl = window.API_BASE_URL || 'http://127.0.0.1:8000';
+    const baseUrl = window.API_BASE_URL || '';
     const url = `${baseUrl}/api/wards/${apiId}`;
 
     const response = await fetch(url);

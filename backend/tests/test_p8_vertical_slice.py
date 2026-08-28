@@ -124,6 +124,31 @@ class TestP8VerticalSlice(unittest.TestCase):
         self.assertEqual(res["composite_score"], expected_composite)
         self.assertEqual(res["vulnerability_adjustment"], round(expected_composite - 50.0, 2))
 
+    def test_risk_map_geojson_feature_collection(self):
+        """Verify GET /api/risk-map returns GeoJSON FeatureCollection with 10 wards."""
+        from app.main import get_risk_map
+        result = get_risk_map(self.db)
+        self.assertEqual(result.get("type"), "FeatureCollection")
+        features = result.get("features", [])
+        self.assertEqual(len(features), 10)
+
+        for feat in features:
+            self.assertEqual(feat.get("type"), "Feature")
+            self.assertTrue(feat.get("id").startswith("BBSR-"))
+            props = feat.get("properties", {})
+            self.assertIn("id", props)
+            self.assertIn("name", props)
+            self.assertIn("vulnerability_index", props)
+            self.assertTrue(0.0 <= props["vulnerability_index"] <= 1.0)
+            geom = feat.get("geometry", {})
+            self.assertEqual(geom.get("type"), "Point")
+            coords = geom.get("coordinates", [])
+            self.assertEqual(len(coords), 2)
+            lon, lat = coords
+            self.assertTrue(85.0 <= lon <= 86.5)
+            self.assertTrue(20.0 <= lat <= 21.0)
+
 
 if __name__ == "__main__":
     unittest.main()
+

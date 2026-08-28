@@ -1,7 +1,7 @@
 // Bhubaneswar coordinates
 const BHUBANESWAR_COORDS = [20.2961, 85.8245];
 const INITIAL_ZOOM = 12;
-const GEOJSON_URL = '/backend/data/wards.geojson';
+const GEOJSON_URL = '/api/risk-map';
 
 function showError(message) {
     console.error(message);
