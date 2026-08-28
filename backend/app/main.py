@@ -20,6 +20,7 @@ from app.services.advisory import (
     get_persona_advisory,
     normalize_category_name,
 )
+from app.services.ml_model import predict_forecast
 from app.services.risk_engine import categorize_risk, compute_composite_risk
 from app.services.thermal_index import heat_index, wbgt
 from app.services.vulnerability import get_ward_vulnerability
@@ -129,20 +130,26 @@ def get_ward_risk_slice(
     if outdoor_worker_pct is None and vuln_info:
         outdoor_worker_pct = vuln_info.get("outdoor_worker_pct")
 
-    # 5. Compute forecast risk projections
+    # 5. Compute ML forecast risk projections
     forecast_items: List[Dict[str, Any]] = []
-    for day in weather_data.get("forecast", []):
-        f_temp = day["temp_max_c"]
-        f_humidity = day["humidity_max_pct"]
-        predicted_hi = heat_index(f_temp, f_humidity)
-        predicted_risk = compute_composite_risk(predicted_hi, ward.vulnerability_index)
-        forecast_items.append(
-            {
-                "date": day["date"],
-                "predicted_heat_index": predicted_hi,
-                "predicted_risk_category": predicted_risk["risk_category"],
-            }
+    try:
+        raw_forecast = predict_forecast(db, ward.id)
+        if raw_forecast:
+            forecast_items = [
+                {
+                    "date": str(item["date"]),
+                    "predicted_heat_index": float(item["predicted_heat_index"]),
+                    "predicted_risk_category": str(item["predicted_risk_category"]),
+                }
+                for item in raw_forecast
+            ]
+        else:
+            forecast_items = []
+    except Exception as exc:
+        logger.warning(
+            f"Failed to generate ML forecast for ward {id} ({ward.ward_number}): {exc}"
         )
+        forecast_items = []
 
     # 6. Retrieve public health advisory for active composite risk category
     advisory_data = get_advisory(risk_profile["risk_category"])
