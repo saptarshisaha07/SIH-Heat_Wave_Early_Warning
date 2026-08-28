@@ -1,0 +1,30 @@
+/**
+ * Additional styles for Public Health Advisory panel and Score Breakdown chart.
+ * Matches design system and sidebar typography conventions.
+ */
+
+.advisory-headline {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.advisory-actions-list {
+    list-style-type: disc;
+    margin-left: 18px;
+    margin-top: 6px;
+    margin-bottom: 8px;
+    color: #4a5568;
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.advisory-action-item {
+    margin-bottom: 6px;
+}
+
+.advisory-action-item:last-child {
+    margin-bottom: 0;
+}
