@@ -1,9 +1,22 @@
-"""Focused automated test suite for Task 08 (Critical One-Ward End-to-End Vertical Slice)."""
-
+from datetime import datetime, timedelta
+from pathlib import Path
+import sys
 import unittest
+from unittest.mock import patch
+
+# Ensure backend directory is in sys.path
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
+from fastapi import HTTPException
+from fastapi.testclient import TestClient
+
 from app.db.session import SessionLocal, init_db
+from app.main import app, get_ward_risk_slice
+from app.models.forecast import Forecast
 from app.models.ward import Ward
-from app.main import get_ward_risk_slice
+from app.models.weather import WeatherReading
 from app.seed import seed_database
 from app.services.risk_engine import (
     compute_base_heat_score,
@@ -11,7 +24,6 @@ from app.services.risk_engine import (
     categorize_risk,
 )
 from app.services.thermal_index import heat_index, wbgt
-from fastapi import HTTPException
 
 
 class TestP8VerticalSlice(unittest.TestCase):
@@ -20,6 +32,34 @@ class TestP8VerticalSlice(unittest.TestCase):
         init_db()
         seed_database()
         cls.db = SessionLocal()
+        cls.client = TestClient(app)
+
+        # Seed 3 distinct calendar days of WeatherReading records for ward 1
+        cls.ward_id = 1
+        cls.db.query(WeatherReading).filter(WeatherReading.ward_id == cls.ward_id).delete()
+        cls.db.query(Forecast).filter(Forecast.ward_id == cls.ward_id).delete()
+        # Also clean ward 2 weather readings so it acts as an unseeded ward
+        cls.db.query(WeatherReading).filter(WeatherReading.ward_id == 2).delete()
+        cls.db.commit()
+
+        today = datetime.utcnow()
+        sample_weather = [
+            {"days_ago": 2, "temp": 32.5, "hum": 65.0, "wind": 4.2, "solar": 650.0},
+            {"days_ago": 1, "temp": 34.0, "hum": 70.0, "wind": 5.1, "solar": 720.0},
+            {"days_ago": 0, "temp": 35.8, "hum": 68.0, "wind": 4.8, "solar": 780.0},
+        ]
+        for sw in sample_weather:
+            reading_time = today - timedelta(days=sw["days_ago"])
+            reading = WeatherReading(
+                ward_id=cls.ward_id,
+                timestamp=reading_time,
+                temperature=sw["temp"],
+                relative_humidity=sw["hum"],
+                wind_speed=sw["wind"],
+                solar_radiation=sw["solar"],
+            )
+            cls.db.add(reading)
+        cls.db.commit()
 
     @classmethod
     def tearDownClass(cls):
@@ -66,16 +106,18 @@ class TestP8VerticalSlice(unittest.TestCase):
             {"Normal", "Caution", "Extreme Caution", "Danger", "Extreme Danger"},
         )
 
-        # 3. Forecast block assertions
+        # 3. Forecast block assertions (populated ML multi-horizon predictions)
         self.assertIn("forecast", payload)
         forecast = payload["forecast"]
         self.assertIsInstance(forecast, list)
-        self.assertEqual(len(forecast), 5)
+        self.assertEqual(len(forecast), 3)
         for day in forecast:
             self.assertIn("date", day)
             self.assertIn("predicted_heat_index", day)
             self.assertIn("predicted_risk_category", day)
+            self.assertIsInstance(day["date"], str)
             self.assertIsInstance(day["predicted_heat_index"], (int, float))
+            self.assertIsInstance(day["predicted_risk_category"], str)
             self.assertIn(
                 day["predicted_risk_category"],
                 {"Normal", "Caution", "Extreme Caution", "Danger", "Extreme Danger"},
@@ -88,6 +130,62 @@ class TestP8VerticalSlice(unittest.TestCase):
         self.assertIn("headline", adv)
         self.assertIn("general_public", adv)
         self.assertIn("outdoor_workers", adv)
+
+    def test_ward_forecast_graceful_fallback_on_insufficient_data(self):
+        """Verify endpoint returns 200 with empty forecast [] when historical data is missing."""
+        with self.assertLogs("app.main", level="WARNING") as cm:
+            payload = get_ward_risk_slice(2, self.db)
+
+        self.assertIn("forecast", payload)
+        self.assertEqual(payload["forecast"], [])
+        self.assertTrue(
+            any("Failed to generate ML forecast for ward 2" in msg for msg in cm.output),
+            f"Expected warning log for ward 2 forecast failure, got: {cm.output}",
+        )
+
+    def test_ward_forecast_graceful_fallback_on_exception(self):
+        """Verify endpoint returns 200 with empty forecast [] when predict_forecast raises an exception."""
+        with patch("app.main.predict_forecast", side_effect=RuntimeError("Model file corrupted")):
+            with self.assertLogs("app.main", level="WARNING") as cm:
+                payload = get_ward_risk_slice(1, self.db)
+
+            self.assertIn("forecast", payload)
+            self.assertEqual(payload["forecast"], [])
+            self.assertTrue(
+                any("Model file corrupted" in msg for msg in cm.output),
+                f"Expected warning log containing error message, got: {cm.output}",
+            )
+
+    def test_ward_forecast_graceful_fallback_on_empty_prediction(self):
+        """Verify endpoint returns 200 with empty forecast [] when predict_forecast returns empty list."""
+        with patch("app.main.predict_forecast", return_value=[]):
+            payload = get_ward_risk_slice(1, self.db)
+            self.assertIn("forecast", payload)
+            self.assertEqual(payload["forecast"], [])
+
+    def test_get_ward_endpoint_via_http_client(self):
+        """Verify HTTP GET /api/wards/{id} returns 200 and matches expected payload shape."""
+        # Test seeded ward 1 (populated forecast)
+        resp1 = self.client.get("/api/wards/1")
+        self.assertEqual(resp1.status_code, 200)
+        data1 = resp1.json()
+        self.assertIn("ward", data1)
+        self.assertIn("current", data1)
+        self.assertIn("forecast", data1)
+        self.assertIn("advisory", data1)
+        self.assertIsInstance(data1["forecast"], list)
+        self.assertEqual(len(data1["forecast"]), 3)
+        self.assertIn("date", data1["forecast"][0])
+        self.assertIn("predicted_heat_index", data1["forecast"][0])
+        self.assertIn("predicted_risk_category", data1["forecast"][0])
+
+        # Test unseeded ward 2 (fallback empty forecast array)
+        resp2 = self.client.get("/api/wards/2")
+        self.assertEqual(resp2.status_code, 200)
+        data2 = resp2.json()
+        self.assertIn("ward", data2)
+        self.assertIn("forecast", data2)
+        self.assertEqual(data2["forecast"], [])
 
     def test_nonexistent_ward_returns_404(self):
         """Verify requesting non-existent ward ID raises HTTP 404."""
