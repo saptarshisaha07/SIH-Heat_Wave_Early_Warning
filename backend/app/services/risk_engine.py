@@ -164,6 +164,7 @@ def compute_composite_risk(heat_index_c: float, vulnerability_index: float) -> D
         "alert_level": comp_cat["alert_level"],
         "color_hex": comp_cat["color_hex"],
         "heat_only_category": heat_only_cat["category"],
+        "heat_only_risk_category": heat_only_cat["category"],
         "heat_only_color": heat_only_cat["color_hex"],
         "is_amplified": comp_cat["category"] != heat_only_cat["category"],
     }

@@ -4,6 +4,8 @@
  */
 
 let activeRequestId = 0;
+let lastSelectedWardData = null;
+window.currentScoreMode = 'adjusted';
 
 function getSidebarElement() {
     return document.getElementById('ward-details');
@@ -92,7 +94,10 @@ function createDataRow(label, value) {
  */
 function renderSidebarData(data) {
     const sidebar = getSidebarElement();
-    if (!sidebar) return;
+    if (!sidebar || !data) return;
+
+    // Cache latest selected ward data for instant toggle re-rendering
+    lastSelectedWardData = data;
 
     while (sidebar.firstChild) {
         sidebar.removeChild(sidebar.firstChild);
@@ -100,6 +105,7 @@ function renderSidebarData(data) {
 
     const ward = data.ward || {};
     const current = data.current || {};
+    const isHeatOnly = (window.currentScoreMode === 'heat_only');
 
     // Header section
     const header = document.createElement('div');
@@ -134,7 +140,7 @@ function renderSidebarData(data) {
 
     sidebar.appendChild(weatherSection);
 
-    // Risk & Vulnerability Profile
+    // Risk & Vulnerability Profile (Mode-Aware)
     const riskSection = document.createElement('div');
     riskSection.className = 'sidebar-section';
 
@@ -142,11 +148,23 @@ function renderSidebarData(data) {
     riskTitle.textContent = 'Risk & Vulnerability Assessment';
     riskSection.appendChild(riskTitle);
 
-    riskSection.appendChild(createDataRow('Composite Risk Score', current.composite_score !== undefined ? current.composite_score : 'N/A'));
-    riskSection.appendChild(createDataRow('Risk Category', current.risk_category || 'N/A'));
-    riskSection.appendChild(createDataRow('Base Heat Score', current.base_score !== undefined ? current.base_score : 'N/A'));
-    riskSection.appendChild(createDataRow('Vulnerability Adjustment', current.vulnerability_adjustment !== undefined ? current.vulnerability_adjustment : 'N/A'));
-    riskSection.appendChild(createDataRow('Vulnerability Index', ward.vulnerability_index !== undefined ? ward.vulnerability_index : 'N/A'));
+    if (isHeatOnly) {
+        const heatOnlyScore = current.heat_only_score !== undefined
+            ? current.heat_only_score
+            : (current.base_score !== undefined ? current.base_score : 'N/A');
+        const heatOnlyCat = current.heat_only_risk_category || 'N/A';
+
+        riskSection.appendChild(createDataRow('Heat-Only Risk Score', heatOnlyScore));
+        riskSection.appendChild(createDataRow('Heat-Only Risk Category', heatOnlyCat));
+        riskSection.appendChild(createDataRow('Evaluation Mode', 'Heat-Only (Vulnerability Excluded)'));
+        riskSection.appendChild(createDataRow('Base Heat Score', current.base_score !== undefined ? current.base_score : 'N/A'));
+    } else {
+        riskSection.appendChild(createDataRow('Composite Risk Score', current.composite_score !== undefined ? current.composite_score : 'N/A'));
+        riskSection.appendChild(createDataRow('Risk Category', current.risk_category || 'N/A'));
+        riskSection.appendChild(createDataRow('Base Heat Score', current.base_score !== undefined ? current.base_score : 'N/A'));
+        riskSection.appendChild(createDataRow('Vulnerability Adjustment', current.vulnerability_adjustment !== undefined ? current.vulnerability_adjustment : 'N/A'));
+        riskSection.appendChild(createDataRow('Vulnerability Index', ward.vulnerability_index !== undefined ? ward.vulnerability_index : 'N/A'));
+    }
 
     if (ward.elderly_pct !== undefined && ward.elderly_pct !== null) {
         riskSection.appendChild(createDataRow('Elderly Population', `${ward.elderly_pct} %`));
@@ -238,5 +256,51 @@ async function handleWardMarkerClick(wardId) {
     }
 }
 
-// Expose callback globally on window
+/**
+ * Global switcher for Risk Evaluation Mode ('adjusted' vs 'heat_only').
+ * @param {string} mode
+ */
+function setScoreMode(mode) {
+    const normalizedMode = mode === 'heat_only' ? 'heat_only' : 'adjusted';
+    window.currentScoreMode = normalizedMode;
+
+    const btnAdjusted = document.getElementById('toggle-adjusted');
+    const btnHeatOnly = document.getElementById('toggle-heat-only');
+
+    if (btnAdjusted && btnHeatOnly) {
+        if (normalizedMode === 'heat_only') {
+            btnAdjusted.classList.remove('active');
+            btnHeatOnly.classList.add('active');
+        } else {
+            btnAdjusted.classList.add('active');
+            btnHeatOnly.classList.remove('active');
+        }
+    }
+
+    // Update map marker colors in place
+    if (typeof window.updateMapMarkerMode === 'function') {
+        window.updateMapMarkerMode(normalizedMode);
+    }
+
+    // Re-render sidebar if a ward is selected
+    if (lastSelectedWardData) {
+        renderSidebarData(lastSelectedWardData);
+    }
+}
+
+// Expose globally on window
 window.handleWardMarkerClick = handleWardMarkerClick;
+window.setScoreMode = setScoreMode;
+
+// Bind toggle button click handlers on page load
+document.addEventListener('DOMContentLoaded', () => {
+    const btnAdjusted = document.getElementById('toggle-adjusted');
+    const btnHeatOnly = document.getElementById('toggle-heat-only');
+
+    if (btnAdjusted) {
+        btnAdjusted.addEventListener('click', () => setScoreMode('adjusted'));
+    }
+    if (btnHeatOnly) {
+        btnHeatOnly.addEventListener('click', () => setScoreMode('heat_only'));
+    }
+});
