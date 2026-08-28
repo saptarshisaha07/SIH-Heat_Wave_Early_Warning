@@ -1,7 +1,7 @@
 /**
- * Forecast Chart module for Bhubaneswar Heatwave Early Warning System.
- * Renders multi-horizon Heat Index forecast line charts using Chart.js with
- * risk-category-based point color coding and strict instance lifecycle management.
+ * Forecast Chart & Visualizations module for Bhubaneswar Heatwave Early Warning System.
+ * Renders multi-horizon Heat Index forecast line charts with risk-zone background bands,
+ * dark-theme styling, and the horizontal composite score gradient gauge bar.
  */
 
 // Module-level reference to the active Chart.js instance to prevent memory leaks and orphaned canvases
@@ -37,8 +37,139 @@ function getRiskCategoryColor(category) {
 }
 
 /**
+ * Renders a horizontal gradient Composite Risk Score gauge bar with needle pointer and category badge.
+ * Built with pure DOM elements for high performance and pixel-accurate placement.
+ *
+ * @param {number|string} score - Risk score value (0-100 continuous)
+ * @param {string} category - Risk category name (Normal, Caution, Extreme Caution, Danger, Extreme Danger)
+ * @param {HTMLElement} containerElement - Parent DOM element where gauge should be appended
+ */
+function renderScoreGauge(score, category, containerElement) {
+    if (!containerElement) return;
+
+    // Parse numeric score, clamped 0-100
+    const numScore = (score !== null && score !== undefined && !isNaN(Number(score)))
+        ? Math.max(0, Math.min(100, Number(score)))
+        : 0;
+    const displayScore = (score !== null && score !== undefined && !isNaN(Number(score)))
+        ? Number(score).toFixed(1)
+        : 'N/A';
+    const safeCategory = category || 'Normal';
+    const categoryColor = getRiskCategoryColor(safeCategory);
+
+    const gaugeContainer = document.createElement('div');
+    gaugeContainer.className = 'score-gauge-container';
+
+    // Header with title and colored badge
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'score-gauge-header';
+
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'score-gauge-title';
+    titleSpan.textContent = 'Risk Level Gauge';
+    headerDiv.appendChild(titleSpan);
+
+    const badge = document.createElement('span');
+    badge.className = 'score-gauge-badge';
+    badge.style.backgroundColor = categoryColor;
+    badge.textContent = `${displayScore} — ${safeCategory}`;
+    headerDiv.appendChild(badge);
+
+    gaugeContainer.appendChild(headerDiv);
+
+    // Bar wrapper with gradient track and positioned pointer
+    const barWrapper = document.createElement('div');
+    barWrapper.className = 'score-gauge-bar-wrapper';
+
+    const bar = document.createElement('div');
+    bar.className = 'score-gauge-bar';
+    barWrapper.appendChild(bar);
+
+    // Positioned needle pointer
+    const pointer = document.createElement('div');
+    pointer.className = 'score-gauge-pointer';
+    pointer.style.left = `${numScore}%`;
+
+    const needle = document.createElement('div');
+    needle.className = 'score-gauge-pointer-needle';
+    pointer.appendChild(needle);
+
+    const pin = document.createElement('div');
+    pin.className = 'score-gauge-pointer-pin';
+    pointer.appendChild(pin);
+
+    barWrapper.appendChild(pointer);
+    gaugeContainer.appendChild(barWrapper);
+
+    // Scale ticks below bar
+    const ticks = document.createElement('div');
+    ticks.className = 'score-gauge-scale-ticks';
+
+    const tick0 = document.createElement('span');
+    tick0.textContent = '0 (Low)';
+    const tick20 = document.createElement('span');
+    tick20.textContent = '20';
+    const tick40 = document.createElement('span');
+    tick40.textContent = '40';
+    const tick60 = document.createElement('span');
+    tick60.textContent = '60';
+    const tick85 = document.createElement('span');
+    tick85.textContent = '85';
+    const tick100 = document.createElement('span');
+    tick100.textContent = '100 (Severe)';
+
+    ticks.appendChild(tick0);
+    ticks.appendChild(tick20);
+    ticks.appendChild(tick40);
+    ticks.appendChild(tick60);
+    ticks.appendChild(tick85);
+    ticks.appendChild(tick100);
+
+    gaugeContainer.appendChild(ticks);
+
+    containerElement.appendChild(gaugeContainer);
+}
+
+/**
+ * Custom inline Chart.js plugin to render subtle colored risk-zone background bands
+ * behind the forecast line chart across Heat Index severity intervals.
+ */
+const riskZoneBandsPlugin = {
+    id: 'riskZoneBands',
+    beforeDraw: (chart) => {
+        const { ctx, chartArea, scales: { y } } = chart;
+        if (!chartArea || !y) return;
+
+        // Meteorological Heat Index bands (°C):
+        // <27°C: Normal (green)
+        // 27-32°C: Caution (yellow)
+        // 33-41°C: Extreme Caution (orange)
+        // 42-54°C: Danger (red)
+        // 55°C+: Extreme Danger (maroon)
+        const zones = [
+            { min: 0, max: 27, color: 'rgba(40, 167, 69, 0.09)' },
+            { min: 27, max: 33, color: 'rgba(255, 193, 7, 0.09)' },
+            { min: 33, max: 42, color: 'rgba(253, 126, 20, 0.09)' },
+            { min: 42, max: 54, color: 'rgba(220, 53, 69, 0.09)' },
+            { min: 54, max: 100, color: 'rgba(128, 0, 0, 0.09)' }
+        ];
+
+        ctx.save();
+        zones.forEach(zone => {
+            const yTop = Math.max(chartArea.top, y.getPixelForValue(zone.max));
+            const yBottom = Math.min(chartArea.bottom, y.getPixelForValue(zone.min));
+            if (yBottom > yTop && yBottom >= chartArea.top && yTop <= chartArea.bottom) {
+                ctx.fillStyle = zone.color;
+                ctx.fillRect(chartArea.left, yTop, chartArea.right - chartArea.left, yBottom - yTop);
+            }
+        });
+        ctx.restore();
+    }
+};
+
+/**
  * Renders a Heat Index forecast line chart inside the specified container element.
- * Manages canvas creation, data extraction, color mapping, and chart lifecycle.
+ * Re-themed for dark background with cyan glow line and risk-zone bands.
  *
  * @param {Array<Object>} forecastArray - Array of forecast objects with date, predicted_heat_index, predicted_risk_category
  * @param {HTMLElement} containerElement - DOM element container where the chart/message should be appended
@@ -97,19 +228,20 @@ function renderForecastChart(forecastArray, containerElement) {
                 {
                     label: 'Predicted Heat Index (°C)',
                     data: dataPoints,
-                    borderColor: '#3182ce',
-                    borderWidth: 2,
-                    backgroundColor: 'rgba(49, 130, 206, 0.08)',
+                    borderColor: '#38bdf8',
+                    borderWidth: 2.5,
+                    backgroundColor: 'rgba(56, 189, 248, 0.12)',
                     pointBackgroundColor: pointColors,
-                    pointBorderColor: '#ffffff',
+                    pointBorderColor: '#0f172a',
                     pointBorderWidth: 2,
                     pointRadius: 6,
                     pointHoverRadius: 8,
                     fill: true,
-                    tension: 0.25
+                    tension: 0.3
                 }
             ]
         },
+        plugins: [riskZoneBandsPlugin],
         options: {
             responsive: true,
             maintainAspectRatio: true,
@@ -118,6 +250,12 @@ function renderForecastChart(forecastArray, containerElement) {
                     display: false
                 },
                 tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    titleColor: '#f8fafc',
+                    bodyColor: '#cbd5e1',
+                    borderColor: 'rgba(255, 255, 255, 0.12)',
+                    borderWidth: 1,
+                    padding: 10,
                     callbacks: {
                         label: function (context) {
                             const index = context.dataIndex;
@@ -138,7 +276,7 @@ function renderForecastChart(forecastArray, containerElement) {
                             size: 11,
                             weight: '600'
                         },
-                        color: '#718096'
+                        color: '#94a3b8'
                     },
                     grid: {
                         display: false
@@ -147,7 +285,7 @@ function renderForecastChart(forecastArray, containerElement) {
                         font: {
                             size: 10
                         },
-                        color: '#4a5568'
+                        color: '#94a3b8'
                     }
                 },
                 y: {
@@ -158,19 +296,19 @@ function renderForecastChart(forecastArray, containerElement) {
                             size: 11,
                             weight: '600'
                         },
-                        color: '#718096'
+                        color: '#94a3b8'
                     },
                     ticks: {
                         font: {
                             size: 10
                         },
-                        color: '#4a5568',
+                        color: '#94a3b8',
                         callback: function (val) {
                             return `${val} °C`;
                         }
                     },
                     grid: {
-                        color: '#edf2f7'
+                        color: 'rgba(255, 255, 255, 0.07)'
                     }
                 }
             }
@@ -178,6 +316,8 @@ function renderForecastChart(forecastArray, containerElement) {
     });
 }
 
-// Expose render function globally on window for app.js
+// Expose functions globally on window for app.js
 window.renderForecastChart = renderForecastChart;
+window.renderScoreGauge = renderScoreGauge;
 window.getRiskCategoryColor = getRiskCategoryColor;
+

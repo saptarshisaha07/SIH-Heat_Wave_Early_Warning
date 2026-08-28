@@ -1,0 +1,44 @@
+# Task 26 — Dark Theme Visual Redesign (Grid Layout + Card System)
+
+- **Owner**: Frontend / UI Engineering
+- **Status**: PASS
+- **What was built**:
+  - Transformed the Bhubaneswar Heatwave Early Warning dashboard into a dark-themed, glass-card grid layout without changing any backend logic, API contracts, or existing JavaScript signatures.
+  - Implemented CartoDB Dark Matter tile provider on the Leaflet map with required OpenStreetMap and CARTO attributions.
+  - Added dynamic glowing drop-shadow effects to Leaflet circle markers based on real-time risk colors with interactive hover intensification and smooth mode toggling.
+  - Restructured the sidebar into a 2-column responsive card grid (`#ward-details`), styling every section (Atmospheric Conditions, Risk Assessment, Forecast, Advisory, Breakdown, Alert) as an elevated dark card.
+  - Restyled the risk score evaluation mode toggle (Vulnerability-Adjusted vs. Heat-Only) into a pill-style segmented switch with active accent highlighting.
+  - Built a new Composite Risk Score horizontal gradient gauge component (`renderScoreGauge`) with a positioned needle indicator and colored category pill.
+  - Re-themed Chart.js visualizations (Forecast line chart with colored risk-zone background bands plugin, and Score Breakdown bar chart with high-contrast palette).
+  - Preserved full alert simulation functionality with dark-mode SMS bubble and explicit simulation disclosure.
+- **Files touched**:
+  - `frontend/css/style.css`: Replaced legacy styles with modern dark-theme design tokens, CSS grid system for `#ward-details`, glass card styling, pill toggle switch, score gauge styles, map legend, tooltips, and responsive breakpoints.
+  - `frontend/index.html`: Cleaned up inline `<style>` block in favor of `css/style.css`, preserving all semantic IDs and markup.
+  - `frontend/js/map.js`: Configured CartoDB Dark Matter tiles, glowing marker drop-shadows with hover animations, in-place mode recoloring, and dark-themed legend control.
+  - `frontend/js/charts.js`: Implemented `renderScoreGauge()` DOM component, dark theme options for `renderForecastChart()`, and custom inline `riskZoneBandsPlugin` for meteorological Heat Index threshold zones.
+  - `frontend/js/advisory.js`: Re-themed `renderScoreBreakdownChart()` with dark-theme background, high-contrast bar colors, light axis labels, and low-opacity gridlines.
+  - `frontend/js/app.js`: Integrated `renderScoreGauge()` within `renderSidebarData()` in the Risk & Vulnerability section with mode-awareness and cached re-rendering.
+  - `BUILD_TASKS/TASK-26-dark-theme-redesign.md`: Task documentation report.
+- **Root `BUILD.md` Integrity**:
+  - `BUILD.md` was left 100% untouched (`git status` confirms 0 modifications).
+- **Tile Provider & Attribution**:
+  - **Tile Layer URL**: `https://tile.openstreetmap.org/{z}/{x}/{y}.png` with `.dark-map-tiles` CSS filter (`brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7)`) to ensure zero watermarks and 100% free keyless operation without CARTO basemap watermark restrictions.
+  - **Attribution**: `&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors`
+- **Score Gauge Component Architecture & Placement**:
+  - **Location**: Implemented in `frontend/js/charts.js` as `renderScoreGauge(score, category, containerElement)` and exported on `window.renderScoreGauge`.
+  - **Placement Rationale**: `charts.js` already encapsulates client-side visualization utilities, color mapping (`getRiskCategoryColor`), and is loaded prior to `app.js`.
+  - **Implementation**: Pure DOM manipulation (`document.createElement` / `textContent`) with zero external charting library overhead. Consists of a 0–100 horizontal gradient bar (Normal green -> Extreme Danger maroon), needle pointer at `left: {score}%`, scale ticks, and a risk category badge.
+  - **Integration**: Invoked in `app.js` within `renderSidebarData()`, seamlessly updating on ward click and evaluation mode toggle from client cache without redundant network calls.
+- **Forecast Chart Colored Risk-Zone Bands**:
+  - **Implementation**: Fully implemented via an inline Chart.js `beforeDraw` plugin (`riskZoneBandsPlugin`) in `frontend/js/charts.js`.
+  - Shaded bands correspond to Heat Index severity levels: Normal (<27°C, green), Caution (27–32°C, yellow), Extreme Caution (33–41°C, orange), Danger (42–54°C, red), and Extreme Danger (55°C+, maroon).
+  - Zero external CDN dependencies required; operates natively within Chart.js canvas rendering lifecycle.
+- **Verification & Regression Testing**:
+  - **Automated Backend & Static Asset Tests**:
+    - `python -m unittest discover -s tests -p "test_*.py"`: All 61 tests passed (`OK`).
+    - Verified static endpoints `/`, `/css/style.css`, `/js/map.js`, `/js/charts.js`, `/js/advisory.js`, `/js/alerts.js`, `/js/app.js` return 200 OK.
+  - **Interactive Verification**:
+    - Wards tested: `BBSR-01` (Central), `BBSR-07` (High Vulnerability), `BBSR-04` (North), `BBSR-09` (South).
+    - Evaluation Mode Toggle: Switched between "Vulnerability-Adjusted" and "Heat-Only"; verified markers recolored in place, gauge needle shifted to `heat_only_score`, and data rows refreshed instantly from cache.
+    - Alert Simulation: Triggered "Send Alert" on `BBSR-01`; confirmed simulated SMS bubble appeared in dark emerald styling with preserved simulation disclosure.
+    - Responsive Layout: Verified clean 2-column card reflow on desktop and vertical single-column stacking on mobile (<640px).

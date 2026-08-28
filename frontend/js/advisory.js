@@ -111,15 +111,15 @@ function renderScoreBreakdownChart(current, containerElement) {
     const compositeScore = hasComp ? Number(current.composite_score) : 0;
 
     // 6. Resolve colors: distinct base/adjustment colors, with dynamic risk category color for composite bar
-    const baseColor = '#3182ce'; // Theme blue
-    const vulnColor = '#805ad5'; // Purple
-    let compositeColor = '#e53e3e'; // Fallback red
+    const baseColor = '#38bdf8'; // Theme Cyan/Blue
+    const vulnColor = '#a855f7'; // Vibrant Purple
+    let compositeColor = '#ef4444'; // Fallback Red
 
     if (typeof window.getRiskCategoryColor === 'function' && current.risk_category) {
         compositeColor = window.getRiskCategoryColor(current.risk_category);
     }
 
-    // 7. Instantiate Chart.js bar chart
+    // 7. Instantiate Chart.js bar chart with dark-theme styling
     currentBreakdownChartInstance = new Chart(canvas, {
         type: 'bar',
         data: {
@@ -128,10 +128,18 @@ function renderScoreBreakdownChart(current, containerElement) {
                 {
                     label: 'Score Value',
                     data: [baseScore, vulnAdj, compositeScore],
-                    backgroundColor: [baseColor, vulnColor, compositeColor],
-                    borderColor: [baseColor, vulnColor, compositeColor],
-                    borderWidth: 1,
-                    borderRadius: 4
+                    backgroundColor: [
+                        'rgba(56, 189, 248, 0.85)',
+                        'rgba(168, 85, 247, 0.85)',
+                        compositeColor
+                    ],
+                    borderColor: [
+                        '#38bdf8',
+                        '#a855f7',
+                        compositeColor
+                    ],
+                    borderWidth: 1.5,
+                    borderRadius: 6
                 }
             ]
         },
@@ -143,6 +151,12 @@ function renderScoreBreakdownChart(current, containerElement) {
                     display: false
                 },
                 tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    titleColor: '#f8fafc',
+                    bodyColor: '#cbd5e1',
+                    borderColor: 'rgba(255, 255, 255, 0.12)',
+                    borderWidth: 1,
+                    padding: 10,
                     callbacks: {
                         label: function (context) {
                             const val = context.parsed.y !== null && context.parsed.y !== undefined ? context.parsed.y : 'N/A';
@@ -160,28 +174,28 @@ function renderScoreBreakdownChart(current, containerElement) {
                         font: {
                             size: 10
                         },
-                        color: '#4a5568'
+                        color: '#94a3b8'
                     }
                 },
                 y: {
                     beginAtZero: true,
                     title: {
                         display: true,
-                        text: 'Score',
+                        text: 'Score Value (0–100)',
                         font: {
                             size: 11,
                             weight: '600'
                         },
-                        color: '#718096'
+                        color: '#94a3b8'
                     },
                     ticks: {
                         font: {
                             size: 10
                         },
-                        color: '#4a5568'
+                        color: '#94a3b8'
                     },
                     grid: {
-                        color: '#edf2f7'
+                        color: 'rgba(255, 255, 255, 0.07)'
                     }
                 }
             }

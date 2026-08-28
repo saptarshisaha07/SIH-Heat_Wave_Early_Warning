@@ -65,6 +65,50 @@ function renderSidebarError(wardId, errorMessage) {
     sidebar.appendChild(errorContainer);
 }
 
+const WEATHER_ICONS = {
+    temp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>',
+    humidity: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>',
+    wind: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>',
+    heatIndex: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z"/></svg>',
+    wbgt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>'
+};
+
+/**
+ * Helper to construct an atmospheric metric badge tile with visual SVG icon and typography.
+ * @param {string} iconSvg - Inline SVG markup
+ * @param {string} label - Metric label
+ * @param {string|number} value - Formatted value with units
+ * @param {string} iconClass - CSS color class for circular icon container
+ * @param {boolean} fullWidth - Whether tile spans full grid width
+ * @returns {HTMLElement}
+ */
+function createWeatherMetricTile(iconSvg, label, value, iconClass, fullWidth = false) {
+    const tile = document.createElement('div');
+    tile.className = 'weather-metric-item' + (fullWidth ? ' full-width' : '');
+
+    const iconBox = document.createElement('div');
+    iconBox.className = `weather-metric-icon ${iconClass}`;
+    iconBox.innerHTML = iconSvg;
+
+    const contentBox = document.createElement('div');
+    contentBox.className = 'weather-metric-text';
+
+    const labelEl = document.createElement('span');
+    labelEl.className = 'weather-metric-label';
+    labelEl.textContent = label;
+
+    const valueEl = document.createElement('strong');
+    valueEl.className = 'weather-metric-value';
+    valueEl.textContent = value !== null && value !== undefined ? String(value) : 'N/A';
+
+    contentBox.appendChild(labelEl);
+    contentBox.appendChild(valueEl);
+
+    tile.appendChild(iconBox);
+    tile.appendChild(contentBox);
+    return tile;
+}
+
 /**
  * Helper to safely construct a key-value data row.
  * @param {string} label
@@ -124,7 +168,7 @@ function renderSidebarData(data) {
 
     sidebar.appendChild(header);
 
-    // Weather & Thermal Conditions
+    // Weather & Thermal Conditions (with visual badge icons)
     const weatherSection = document.createElement('div');
     weatherSection.className = 'sidebar-section';
 
@@ -132,12 +176,46 @@ function renderSidebarData(data) {
     weatherTitle.textContent = 'Current Atmospheric Conditions';
     weatherSection.appendChild(weatherTitle);
 
-    weatherSection.appendChild(createDataRow('Temperature', current.temp_c !== undefined ? `${current.temp_c} °C` : 'N/A'));
-    weatherSection.appendChild(createDataRow('Relative Humidity', current.humidity_pct !== undefined ? `${current.humidity_pct} %` : 'N/A'));
-    weatherSection.appendChild(createDataRow('Wind Speed', current.wind_kmh !== undefined ? `${current.wind_kmh} km/h` : 'N/A'));
-    weatherSection.appendChild(createDataRow('Heat Index', current.heat_index !== undefined ? `${current.heat_index} °C` : 'N/A'));
-    weatherSection.appendChild(createDataRow('Simplified WBGT', current.wbgt !== undefined ? `${current.wbgt} °C` : 'N/A'));
+    const metricsGrid = document.createElement('div');
+    metricsGrid.className = 'weather-metrics-grid';
 
+    metricsGrid.appendChild(createWeatherMetricTile(
+        WEATHER_ICONS.temp,
+        'Temperature',
+        current.temp_c !== undefined ? `${current.temp_c} °C` : 'N/A',
+        'icon-temp'
+    ));
+
+    metricsGrid.appendChild(createWeatherMetricTile(
+        WEATHER_ICONS.humidity,
+        'Humidity',
+        current.humidity_pct !== undefined ? `${current.humidity_pct} %` : 'N/A',
+        'icon-humidity'
+    ));
+
+    metricsGrid.appendChild(createWeatherMetricTile(
+        WEATHER_ICONS.heatIndex,
+        'Heat Index',
+        current.heat_index !== undefined ? `${current.heat_index} °C` : 'N/A',
+        'icon-heat-index'
+    ));
+
+    metricsGrid.appendChild(createWeatherMetricTile(
+        WEATHER_ICONS.wbgt,
+        'Simplified WBGT',
+        current.wbgt !== undefined ? `${current.wbgt} °C` : 'N/A',
+        'icon-wbgt'
+    ));
+
+    metricsGrid.appendChild(createWeatherMetricTile(
+        WEATHER_ICONS.wind,
+        'Wind Speed',
+        current.wind_kmh !== undefined ? `${current.wind_kmh} km/h` : 'N/A',
+        'icon-wind',
+        true
+    ));
+
+    weatherSection.appendChild(metricsGrid);
     sidebar.appendChild(weatherSection);
 
     // Risk & Vulnerability Profile (Mode-Aware)
@@ -171,6 +249,17 @@ function renderSidebarData(data) {
     }
     if (ward.outdoor_worker_pct !== undefined && ward.outdoor_worker_pct !== null) {
         riskSection.appendChild(createDataRow('Outdoor Worker Population', `${ward.outdoor_worker_pct} %`));
+    }
+
+    // Render Composite / Mode-Aware Risk Score Gauge Bar Component
+    if (typeof window.renderScoreGauge === 'function') {
+        const activeScore = isHeatOnly
+            ? (current.heat_only_score !== undefined ? current.heat_only_score : current.base_score)
+            : current.composite_score;
+        const activeCat = isHeatOnly
+            ? (current.heat_only_risk_category || 'Normal')
+            : (current.risk_category || 'Normal');
+        window.renderScoreGauge(activeScore, activeCat, riskSection);
     }
 
     sidebar.appendChild(riskSection);
