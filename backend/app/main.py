@@ -17,12 +17,9 @@ from app.services.weather_fetcher import WeatherFetcherError, fetch_weather
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize SQLite database and create all tables on application startup
     init_db()
-    # Start in-process background weather ingestion job
-    start_scheduler(interval_minutes=30)
+    start_scheduler()
     yield
-    # Gracefully shut down background scheduler
     shutdown_scheduler()
 
 
@@ -47,10 +44,7 @@ def health_check():
 
 
 @app.post("/api/refresh")
-def refresh_all_weather(
-    db: Session = Depends(get_db),
-) -> Dict[str, Any]:
-    """Trigger on-demand weather ingestion and risk recalculation for all wards."""
+def refresh_weather(db: Session = Depends(get_db)):
     return ingest_all_wards_weather(db)
 
 
