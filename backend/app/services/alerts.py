@@ -1,122 +1,111 @@
 """Alerts simulation service for SIH Heat Wave Early Warning System.
 
-Builds realistic, automated SMS and WhatsApp early warning broadcast payloads
-formatted with localized thermal indicators, risk severity, and immediate health precautions.
+Builds automated SMS and WhatsApp early warning broadcast messages
+formatted with localized thermal indicators, risk severity, and real public health advisories.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
-from app.services.risk_engine import evaluate_ward_risk
+from typing import Any, Dict, List, Optional
 from app.services.advisory import get_advisory
+from app.services.risk_engine import evaluate_ward_risk
 
 
 def format_sms_message(
-    ward_name: str, zone_name: str, risk_category: str, alert_level: str, heat_index_c: float
+    ward_name: str, risk_category: str, heat_index_c: float, headline: str
 ) -> str:
-    """Generate concise SMS warning text (suitable for telecom gateway)."""
-    zone_label = f" ({zone_name})" if zone_name else ""
+    """Generate concise SMS warning text (suitable for telecom gateway broadcast)."""
     return (
-        f"HEAT ALERT [{alert_level.upper()}]: {ward_name}{zone_label} is under {risk_category.upper()} "
-        f"risk (Heat Index: {heat_index_c:.1f}°C). Avoid outdoor exposure 11am-4pm. Drink ORS/water. "
-        f"Dial 108 for emergencies. - BMC Heat Cell"
+        f"HEAT ALERT: {ward_name} is under {risk_category.upper()} risk "
+        f"(Heat Index: {heat_index_c:.1f}°C). {headline}. "
+        f"Dial 108/112 for emergencies. - BMC Heat Cell"
     )
 
 
 def format_whatsapp_message(
     ward_name: str,
-    zone_name: str,
     risk_category: str,
-    alert_level: str,
     heat_index_c: float,
-    precautions: list,
+    headline: str,
+    precautions: List[str],
 ) -> str:
-    """Generate rich formatted WhatsApp alert message with emoji badges and action bullet points."""
-    level_emojis = {
-        "Green": "🟢",
-        "Yellow": "🟡",
-        "Orange": "🟠",
-        "Red": "🔴",
-        "Maroon": "🟣",
-    }
-    emoji = level_emojis.get(alert_level, "⚠️")
-    zone_label = f" ({zone_name})" if zone_name else ""
-
-    top_precautions = "\n".join([f"• {p}" for p in precautions[:3]])
-
+    """Generate rich formatted WhatsApp alert message with action bullet points."""
+    bullet_items = "\n".join([f"• {p}" for p in precautions[:3]]) if precautions else "• Follow standard heat safety precautions."
     return (
-        f"{emoji} *HEATWAVE EARLY WARNING NOTICE* {emoji}\n\n"
-        f"*Location:* {ward_name}{zone_label}\n"
-        f"*Risk Level:* {risk_category} ({alert_level})\n"
+        f"⚠️ *HEATWAVE EARLY WARNING NOTICE*\n\n"
+        f"*Location:* {ward_name}\n"
+        f"*Risk Level:* {risk_category}\n"
         f"*Thermal Heat Index:* {heat_index_c:.1f}°C\n\n"
-        f"*Immediate Protective Measures:*\n"
-        f"{top_precautions}\n\n"
-        f"🚰 *Cooling & Hydration Centers:* Open at community halls.\n"
+        f"*Advisory:* {headline}\n\n"
+        f"*Key Protective Measures:*\n"
+        f"{bullet_items}\n\n"
         f"🚑 *Emergency Helpline:* Dial 108 / 112\n"
-        f"_Issued by Municipal Heatwave Early Warning Authority_"
+        f"_Issued by Bhubaneswar Municipal Heat Action Cell_"
     )
 
 
 def build_simulated_alert(
-    ward_id: str,
+    ward_id: Any,
     heat_index_c: float,
     channel: str = "sms",
     custom_vuln_index: Optional[float] = None,
+    ward_name: Optional[str] = None,
+    risk_category: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Generate a simulated alert broadcast payload for a specific ward.
 
     Args:
-        ward_id: Unique ward identifier (e.g. 'BBSR-01').
-        heat_index_c: Current or forecasted Heat Index in degrees Celsius.
+        ward_id: Database ID (int) or code (str) of the ward.
+        heat_index_c: Current Heat Index in degrees Celsius.
         channel: Delivery medium ('sms' or 'whatsapp').
         custom_vuln_index: Optional override for vulnerability index.
+        ward_name: Optional explicit name of the ward.
+        risk_category: Optional explicit risk category tier.
 
     Returns:
-        Structured simulation response dict ready for frontend display and alerts_log insertion.
+        Structured response dict matching the required Blueprint schema.
     """
-    risk_profile = evaluate_ward_risk(ward_id, heat_index_c, custom_vuln_index)
-    advisory = get_advisory(risk_profile["risk_category"])
-
-    channel_norm = channel.lower().strip()
+    channel_norm = str(channel).lower().strip()
     if channel_norm not in ["sms", "whatsapp"]:
         channel_norm = "sms"
 
-    ward_name = risk_profile["ward_name"]
-    zone_name = risk_profile.get("zone_name", "")
-    risk_category = risk_profile["risk_category"]
-    alert_level = risk_profile["alert_level"]
+    if not ward_name or not risk_category:
+        ward_str = (
+            f"BBSR-{int(ward_id):02d}"
+            if isinstance(ward_id, int) or (isinstance(ward_id, str) and ward_id.isdigit())
+            else str(ward_id)
+        )
+        risk_profile = evaluate_ward_risk(ward_str, heat_index_c, custom_vuln_index)
+        resolved_name = ward_name or risk_profile["ward_name"]
+        resolved_cat = risk_category or risk_profile["risk_category"]
+    else:
+        resolved_name = ward_name
+        resolved_cat = risk_category
+
+    advisory = get_advisory(resolved_cat)
+    headline = advisory.get("headline", "Take precautions during high heat.")
+    precautions = advisory.get("general_public", []) + advisory.get("outdoor_workers", [])
 
     if channel_norm == "whatsapp":
         message_text = format_whatsapp_message(
-            ward_name=ward_name,
-            zone_name=zone_name,
-            risk_category=risk_category,
-            alert_level=alert_level,
+            ward_name=resolved_name,
+            risk_category=resolved_cat,
             heat_index_c=heat_index_c,
-            precautions=advisory["general_public"] + advisory["outdoor_workers"],
+            headline=headline,
+            precautions=precautions,
         )
     else:
         message_text = format_sms_message(
-            ward_name=ward_name,
-            zone_name=zone_name,
-            risk_category=risk_category,
-            alert_level=alert_level,
+            ward_name=resolved_name,
+            risk_category=resolved_cat,
             heat_index_c=heat_index_c,
+            headline=headline,
         )
 
     return {
         "ward_id": ward_id,
-        "ward_name": ward_name,
-        "zone_name": zone_name,
+        "ward_name": resolved_name,
         "channel": channel_norm,
         "status": "simulated",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "risk_category": risk_category,
-        "alert_level": alert_level,
-        "color_hex": risk_profile["color_hex"],
-        "heat_index_c": round(float(heat_index_c), 2),
-        "composite_score": risk_profile["composite_score"],
-        "vulnerability_adjustment": risk_profile["vulnerability_adjustment"],
         "message": message_text,
-        "advisory_headline": advisory["headline"],
-        "key_actions": advisory["general_public"][:2] + advisory["outdoor_workers"][:1],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
