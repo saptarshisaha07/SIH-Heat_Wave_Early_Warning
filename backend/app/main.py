@@ -6,11 +6,14 @@ from typing import Any, Dict, List, Optional
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db, init_db
+from app.models.alert import AlertLog
 from app.models.risk import RiskScore
 from app.models.ward import Ward
+from app.models.weather import WeatherReading
 from app.scheduler import ingest_all_wards_weather, shutdown_scheduler, start_scheduler
 from app.seed import seed_database
 from app.services.advisory import (
@@ -20,6 +23,7 @@ from app.services.advisory import (
     get_persona_advisory,
     normalize_category_name,
 )
+from app.services.alerts import build_simulated_alert
 from app.services.ml_model import predict_forecast
 from app.services.risk_engine import categorize_risk, compute_composite_risk
 from app.services.thermal_index import heat_index, wbgt
@@ -251,6 +255,77 @@ def get_single_advisory(
     if persona:
         return get_persona_advisory(canonical, persona)
     return all_advs[canonical]
+
+
+class AlertSimulateRequest(BaseModel):
+    ward_id: int
+    channel: Optional[str] = "sms"
+
+
+@app.post("/api/alerts/simulate")
+def simulate_alert(
+    request: AlertSimulateRequest,
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Simulate SMS or WhatsApp early warning alert broadcast for a ward based on current weather and risk."""
+    ward = db.query(Ward).filter(Ward.id == request.ward_id).first()
+    if not ward:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Ward with id {request.ward_id} not found.",
+        )
+
+    # 1. Resolve current heat index and risk category from latest DB records or fallback to live compute
+    latest_risk = (
+        db.query(RiskScore)
+        .filter(RiskScore.ward_id == ward.id)
+        .order_by(RiskScore.id.desc())
+        .first()
+    )
+    latest_weather = (
+        db.query(WeatherReading)
+        .filter(WeatherReading.ward_id == ward.id)
+        .order_by(WeatherReading.id.desc())
+        .first()
+    )
+
+    if latest_risk and latest_weather:
+        heat_index_val = latest_weather.heat_index
+        risk_cat_val = latest_risk.risk_level
+    else:
+        try:
+            weather_data = fetch_weather(ward.latitude, ward.longitude)
+            heat_index_val = heat_index(weather_data["temp_c"], weather_data["humidity_pct"])
+            risk_profile = compute_composite_risk(
+                heat_index_c=heat_index_val,
+                vulnerability_index=ward.vulnerability_index,
+            )
+            risk_cat_val = risk_profile["risk_category"]
+        except Exception:
+            heat_index_val = 30.0
+            risk_cat_val = "Caution"
+
+    # 2. Build simulated alert payload
+    alert_payload = build_simulated_alert(
+        ward_id=ward.id,
+        ward_name=ward.name,
+        risk_category=risk_cat_val,
+        heat_index_c=heat_index_val,
+        channel=request.channel or "sms",
+    )
+
+    # 3. Log simulated broadcast event in alerts_log table
+    log_entry = AlertLog(
+        ward_id=ward.id,
+        channel=alert_payload["channel"],
+        message=alert_payload["message"],
+        status="simulated",
+    )
+    db.add(log_entry)
+    db.commit()
+    db.refresh(log_entry)
+
+    return alert_payload
 
 
 # Static frontend mounting (MUST be mounted after all /api/ and other backend routes)
