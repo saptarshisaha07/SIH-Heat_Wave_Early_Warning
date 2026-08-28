@@ -139,6 +139,48 @@ class TestAdvisoryService(unittest.TestCase):
         # normalize_category_name falls back to Caution, so let's verify either 200 or 404
         self.assertIn(resp_invalid.status_code, [200, 404])
 
+    def test_05_unrecognized_category_fallback_and_warning(self):
+        """Verify get_advisory with unrecognized category falls back to Caution and logs warning."""
+        with self.assertLogs("app.services.advisory", level="WARNING") as cm:
+            adv = get_advisory("completely_unknown_category")
+        self.assertEqual(adv["risk_category"], "Caution")
+        self.assertTrue(
+            any("completely_unknown_category" in msg for msg in cm.output),
+            f"Expected raw input string in log output, got: {cm.output}",
+        )
+
+    def test_06_unrecognized_persona_fallback_and_warning(self):
+        """Verify get_persona_advisory with unrecognized persona falls back to general_public and logs warning."""
+        with self.assertLogs("app.services.advisory", level="WARNING") as cm:
+            adv = get_persona_advisory("Danger", "invalid_persona_xyz")
+        self.assertEqual(adv["risk_category"], "Danger")
+        self.assertEqual(adv["persona"], "general_public")
+        self.assertIsInstance(adv["actions"], list)
+        self.assertGreater(len(adv["actions"]), 0)
+        self.assertTrue(
+            any("invalid_persona_xyz" in msg for msg in cm.output),
+            f"Expected raw persona input string in log output, got: {cm.output}",
+        )
+
+    def test_07_all_categories_and_personas_matrix(self):
+        """Verify all 5 risk categories × all 5 VALID_PERSONAS combinations return non-empty action lists."""
+        categories = ["Normal", "Caution", "Extreme Caution", "Danger", "Extreme Danger"]
+        for category in categories:
+            for persona in VALID_PERSONAS:
+                adv = get_persona_advisory(category, persona)
+                self.assertEqual(adv["risk_category"], category)
+                self.assertEqual(adv["persona"], persona)
+                self.assertIsInstance(
+                    adv["actions"],
+                    list,
+                    f"Actions for {category} × {persona} must be a list",
+                )
+                self.assertGreater(
+                    len(adv["actions"]),
+                    0,
+                    f"Action list for {category} × {persona} should not be empty",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
