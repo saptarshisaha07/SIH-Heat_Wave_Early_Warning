@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db, init_db
+from app.models.risk import RiskScore
 from app.models.ward import Ward
 from app.scheduler import ingest_all_wards_weather, shutdown_scheduler, start_scheduler
 from app.seed import seed_database
@@ -20,7 +21,7 @@ from app.services.advisory import (
     normalize_category_name,
 )
 from app.services.ml_model import predict_forecast
-from app.services.risk_engine import compute_composite_risk
+from app.services.risk_engine import categorize_risk, compute_composite_risk
 from app.services.thermal_index import heat_index, wbgt
 from app.services.vulnerability import get_ward_vulnerability
 from app.services.weather_fetcher import WeatherFetcherError, fetch_weather
@@ -182,10 +183,20 @@ def get_ward_risk_slice(
 @app.get("/api/risk-map")
 @app.get("/api/wards")
 def get_risk_map(db: Session = Depends(get_db)) -> Dict[str, Any]:
-    """Retrieve GeoJSON FeatureCollection of all wards with spatial and vulnerability data."""
+    """Retrieve GeoJSON FeatureCollection of all wards with spatial, vulnerability, and risk data."""
     wards = db.query(Ward).order_by(Ward.id).all()
     features = []
     for ward in wards:
+        latest_risk = (
+            db.query(RiskScore)
+            .filter(RiskScore.ward_id == ward.id)
+            .order_by(RiskScore.id.desc())
+            .first()
+        )
+        risk_score_val = latest_risk.risk_score if latest_risk else 0.0
+        risk_cat_val = latest_risk.risk_level if latest_risk else "Normal"
+        color_val = categorize_risk(risk_score_val)["color_hex"]
+
         features.append(
             {
                 "type": "Feature",
@@ -196,6 +207,9 @@ def get_risk_map(db: Session = Depends(get_db)) -> Dict[str, Any]:
                     "vulnerability_index": ward.vulnerability_index,
                     "population": ward.population,
                     "db_id": ward.id,
+                    "risk_score": risk_score_val,
+                    "risk_category": risk_cat_val,
+                    "color": color_val,
                 },
                 "geometry": {
                     "type": "Point",
