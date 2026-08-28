@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db, init_db
 from app.models.ward import Ward
+from app.scheduler import ingest_all_wards_weather, shutdown_scheduler, start_scheduler
 from app.services.advisory import get_advisory
 from app.services.risk_engine import compute_composite_risk
 from app.services.thermal_index import heat_index, wbgt
@@ -16,9 +17,10 @@ from app.services.weather_fetcher import WeatherFetcherError, fetch_weather
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize SQLite database and create all tables on application startup
     init_db()
+    start_scheduler()
     yield
+    shutdown_scheduler()
 
 
 app = FastAPI(
@@ -39,6 +41,11 @@ app.add_middleware(
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+
+@app.post("/api/refresh")
+def refresh_weather(db: Session = Depends(get_db)):
+    return ingest_all_wards_weather(db)
 
 
 @app.get("/api/wards/{id}")
