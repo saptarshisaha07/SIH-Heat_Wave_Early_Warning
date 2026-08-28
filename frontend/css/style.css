@@ -93,3 +93,62 @@
     word-break: break-word;
 }
 
+/* Risk Score Evaluation Mode Toggle Control */
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.score-mode-toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #ffffff;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.toggle-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #4a5568;
+}
+
+.score-mode-toggle {
+    display: inline-flex;
+    background: #edf2f7;
+    border-radius: 6px;
+    padding: 3px;
+    gap: 2px;
+}
+
+.toggle-btn {
+    border: none;
+    background: transparent;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #4a5568;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.toggle-btn:hover:not(.active) {
+    color: #1a202c;
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.toggle-btn.active {
+    background: #3182ce;
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(49, 130, 206, 0.35);
+}
+
+

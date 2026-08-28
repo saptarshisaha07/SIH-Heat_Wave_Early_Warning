@@ -185,6 +185,9 @@ def get_ward_risk_slice(
             "vulnerability_adjustment": risk_profile["vulnerability_adjustment"],
             "composite_score": risk_profile["composite_score"],
             "risk_category": risk_profile["risk_category"],
+            "heat_only_score": risk_profile["heat_only_score"],
+            "heat_only_risk_category": risk_profile["heat_only_risk_category"],
+            "heat_only_color": risk_profile["heat_only_color"],
         },
         "forecast": forecast_items,
         "advisory": advisory_data,
@@ -208,6 +211,11 @@ def get_risk_map(db: Session = Depends(get_db)) -> Dict[str, Any]:
         risk_cat_val = latest_risk.risk_level if latest_risk else "Normal"
         color_val = categorize_risk(risk_score_val)["color_hex"]
 
+        heat_only_score_val = latest_risk.hazard_score if (latest_risk and latest_risk.hazard_score is not None) else 0.0
+        heat_only_info = categorize_risk(heat_only_score_val)
+        heat_only_risk_cat_val = heat_only_info["category"]
+        heat_only_color_val = heat_only_info["color_hex"]
+
         features.append(
             {
                 "type": "Feature",
@@ -221,6 +229,9 @@ def get_risk_map(db: Session = Depends(get_db)) -> Dict[str, Any]:
                     "risk_score": risk_score_val,
                     "risk_category": risk_cat_val,
                     "color": color_val,
+                    "heat_only_score": heat_only_score_val,
+                    "heat_only_risk_category": heat_only_risk_cat_val,
+                    "heat_only_color": heat_only_color_val,
                 },
                 "geometry": {
                     "type": "Point",

@@ -3,6 +3,8 @@ const BHUBANESWAR_COORDS = [20.2961, 85.8245];
 const INITIAL_ZOOM = 12;
 const GEOJSON_URL = '/api/risk-map';
 
+let geojsonLayerInstance = null;
+
 function showError(message) {
     console.error(message);
     const errorEl = document.getElementById('error-message');
@@ -11,6 +13,66 @@ function showError(message) {
         errorEl.style.display = 'block';
     }
 }
+
+/**
+ * Resolves current mode color, risk category, and score for a ward feature.
+ * @param {Object} props - Feature properties
+ * @param {string} mode - 'adjusted' or 'heat_only'
+ * @returns {Object} { color, riskCategory, riskScore }
+ */
+function getMarkerDisplayData(props, mode) {
+    const isHeatOnly = (mode || window.currentScoreMode) === 'heat_only';
+    const color = isHeatOnly
+        ? (props.heat_only_color || props.color || '#28a745')
+        : (props.color || '#28a745');
+    const riskCategory = isHeatOnly
+        ? (props.heat_only_risk_category || props.heat_only_category || props.risk_category || 'Normal')
+        : (props.risk_category || 'Normal');
+    const riskScore = isHeatOnly
+        ? (props.heat_only_score !== undefined ? props.heat_only_score : props.risk_score)
+        : (props.risk_score !== undefined ? props.risk_score : 'N/A');
+
+    return { color, riskCategory, riskScore, isHeatOnly };
+}
+
+/**
+ * Constructs HTML tooltip content for a ward marker.
+ */
+function createTooltipContent(wardId, wardName, riskCategory, riskScore, color, isHeatOnly) {
+    return `
+        <div class="ward-tooltip">
+            <strong>${wardId}: ${wardName}</strong><br>
+            ${isHeatOnly ? 'Heat-Only Risk' : 'Risk'}: <span style="color: ${color}; font-weight: 700;">${riskCategory}</span> (${riskScore})
+        </div>
+    `;
+}
+
+/**
+ * Updates existing Leaflet circle markers in place without removing or re-adding layers.
+ * @param {string} mode - 'adjusted' or 'heat_only'
+ */
+function updateMapMarkerMode(mode) {
+    if (!geojsonLayerInstance) return;
+
+    geojsonLayerInstance.eachLayer(layer => {
+        const props = (layer.feature && layer.feature.properties) ? layer.feature.properties : {};
+        const wardId = props.id || 'Unknown';
+        const wardName = props.name || 'Unknown';
+        const { color, riskCategory, riskScore, isHeatOnly } = getMarkerDisplayData(props, mode);
+
+        // 1. Update marker color style in place
+        layer.setStyle({
+            fillColor: color
+        });
+
+        // 2. Update tooltip content in place
+        const tooltipHtml = createTooltipContent(wardId, wardName, riskCategory, riskScore, color, isHeatOnly);
+        layer.setTooltipContent(tooltipHtml);
+    });
+}
+
+// Expose globally for toggle switch
+window.updateMapMarkerMode = updateMapMarkerMode;
 
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Initialize Leaflet map
@@ -27,12 +89,12 @@ document.addEventListener('DOMContentLoaded', () => {
     legend.onAdd = function () {
         const div = L.DomUtil.create('div', 'map-legend');
         div.innerHTML = `
-            <div class="legend-title">Composite Risk Level</div>
-            <div class="legend-item"><span class="legend-swatch" style="background: #28a745;"></span> Normal</div>
-            <div class="legend-item"><span class="legend-swatch" style="background: #ffc107;"></span> Caution</div>
-            <div class="legend-item"><span class="legend-swatch" style="background: #fd7e14;"></span> Extreme Caution</div>
-            <div class="legend-item"><span class="legend-swatch" style="background: #dc3545;"></span> Danger</div>
-            <div class="legend-item"><span class="legend-swatch" style="background: #800000;"></span> Extreme Danger</div>
+            <div class="legend-title">Risk Scale</div>
+            <div class="legend-item"><span class="legend-swatch" style="background: #28a745;"></span> Normal (&lt;20)</div>
+            <div class="legend-item"><span class="legend-swatch" style="background: #ffc107;"></span> Caution (20–39)</div>
+            <div class="legend-item"><span class="legend-swatch" style="background: #fd7e14;"></span> Extreme Caution (40–59)</div>
+            <div class="legend-item"><span class="legend-swatch" style="background: #dc3545;"></span> Danger (60–84)</div>
+            <div class="legend-item"><span class="legend-swatch" style="background: #800000;"></span> Extreme Danger (≥85)</div>
         `;
         return div;
     };
@@ -58,10 +120,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // 5. Render Choropleth markers using circleMarker
-            const geojsonLayer = L.geoJSON(data, {
+            geojsonLayerInstance = L.geoJSON(data, {
                 pointToLayer: (feature, latlng) => {
                     const props = feature.properties || {};
-                    const color = props.color || '#28a745';
+                    const wardId = props.id || 'Unknown';
+                    const wardName = props.name || 'Unknown';
+                    const { color, riskCategory, riskScore, isHeatOnly } = getMarkerDisplayData(props, window.currentScoreMode || 'adjusted');
 
                     const marker = L.circleMarker(latlng, {
                         radius: 12,
@@ -72,18 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         fillOpacity: 0.85
                     });
 
-                    const wardId = props.id || 'Unknown';
-                    const wardName = props.name || 'Unknown';
-                    const riskCategory = props.risk_category || 'Normal';
-                    const riskScore = props.risk_score !== undefined ? props.risk_score : 'N/A';
-
                     // Bind interactive hover tooltip
-                    const tooltipContent = `
-                        <div class="ward-tooltip">
-                            <strong>${wardId}: ${wardName}</strong><br>
-                            Risk: <span style="color: ${color}; font-weight: 700;">${riskCategory}</span> (${riskScore})
-                        </div>
-                    `;
+                    const tooltipContent = createTooltipContent(wardId, wardName, riskCategory, riskScore, color, isHeatOnly);
                     marker.bindTooltip(tooltipContent, {
                         direction: 'top',
                         offset: [0, -10],
@@ -117,8 +171,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }).addTo(map);
 
             // Fit map bounds to loaded ward features
-            if (geojsonLayer.getBounds().isValid()) {
-                map.fitBounds(geojsonLayer.getBounds());
+            if (geojsonLayerInstance.getBounds().isValid()) {
+                map.fitBounds(geojsonLayerInstance.getBounds());
             }
         })
         .catch(err => {
