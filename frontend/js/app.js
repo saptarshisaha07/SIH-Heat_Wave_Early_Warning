@@ -170,6 +170,34 @@ function renderSidebarData(data) {
     if (typeof window.renderForecastChart === 'function') {
         window.renderForecastChart(data.forecast, forecastSection);
     }
+
+    // Public Health Advisory Section
+    const advisorySection = document.createElement('div');
+    advisorySection.className = 'sidebar-section';
+
+    const advisoryTitle = document.createElement('h3');
+    advisoryTitle.textContent = 'Public Health Advisory';
+    advisorySection.appendChild(advisoryTitle);
+
+    sidebar.appendChild(advisorySection);
+
+    if (typeof window.renderAdvisoryText === 'function') {
+        window.renderAdvisoryText(data.advisory, advisorySection);
+    }
+
+    // Score Breakdown Section
+    const breakdownSection = document.createElement('div');
+    breakdownSection.className = 'sidebar-section';
+
+    const breakdownTitle = document.createElement('h3');
+    breakdownTitle.textContent = 'Score Breakdown';
+    breakdownSection.appendChild(breakdownTitle);
+
+    sidebar.appendChild(breakdownSection);
+
+    if (typeof window.renderScoreBreakdownChart === 'function') {
+        window.renderScoreBreakdownChart(data.current, breakdownSection);
+    }
 }
 
 /**
