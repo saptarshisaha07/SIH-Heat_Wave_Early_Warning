@@ -198,6 +198,20 @@ function renderSidebarData(data) {
     if (typeof window.renderScoreBreakdownChart === 'function') {
         window.renderScoreBreakdownChart(data.current, breakdownSection);
     }
+
+    // Send Alert Section
+    const alertSection = document.createElement('div');
+    alertSection.className = 'sidebar-section';
+
+    const alertTitle = document.createElement('h3');
+    alertTitle.textContent = 'Send Alert';
+    alertSection.appendChild(alertTitle);
+
+    sidebar.appendChild(alertSection);
+
+    if (typeof window.renderAlertButton === 'function') {
+        window.renderAlertButton(data.ward, alertSection);
+    }
 }
 
 /**

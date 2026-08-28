@@ -1,4 +1,4 @@
-﻿"""End-to-end integration tests for single-server FastAPI frontend/backend integration."""
+"""End-to-end integration tests for single-server FastAPI frontend/backend integration."""
 
 import unittest
 from fastapi.testclient import TestClient
@@ -33,11 +33,15 @@ class TestEndToEndIntegration(unittest.TestCase):
         self.assertIn("id=\"ward-details\"", response.text)
 
     def test_02_static_javascript_assets_served(self):
-        """Verify static JS files are accessible directly via same port."""
-        for js_file in ["/js/map.js", "/js/api.js", "/js/app.js"]:
+        """Verify static JS and CSS files are accessible directly via same port."""
+        for js_file in ["/js/map.js", "/js/api.js", "/js/charts.js", "/js/advisory.js", "/js/alerts.js", "/js/app.js"]:
             res = self.client.get(js_file)
             self.assertEqual(res.status_code, 200, f"Failed to fetch static asset: {js_file}")
             self.assertIn("javascript", res.headers.get("content-type", ""))
+
+        css_res = self.client.get("/css/style.css")
+        self.assertEqual(css_res.status_code, 200, "Failed to fetch static stylesheet /css/style.css")
+        self.assertIn("css", css_res.headers.get("content-type", ""))
 
     def test_03_risk_map_endpoint_returns_geojson(self):
         """Verify GET /api/risk-map returns GeoJSON FeatureCollection."""
@@ -63,14 +67,22 @@ class TestEndToEndIntegration(unittest.TestCase):
 
     def test_04_ward_details_endpoint(self):
         """Verify GET /api/wards/1 returns live risk slice with advisory and forecast."""
-        response = self.client.get("/api/wards/1")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIn("ward", data)
-        self.assertIn("current", data)
-        self.assertIn("forecast", data)
-        self.assertIn("advisory", data)
-        self.assertEqual(data["ward"]["ward_number"], "BBSR-01")
+        from unittest.mock import patch
+        mock_weather = {
+            "temp_c": 35.0,
+            "humidity_pct": 65.0,
+            "wind_kmh": 12.0,
+            "solar_radiation": 750.0,
+        }
+        with patch("app.main.fetch_weather", return_value=mock_weather):
+            response = self.client.get("/api/wards/1")
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIn("ward", data)
+            self.assertIn("current", data)
+            self.assertIn("forecast", data)
+            self.assertIn("advisory", data)
+            self.assertEqual(data["ward"]["ward_number"], "BBSR-01")
 
     def test_05_database_seeding_idempotency(self):
         """Verify seed_database is idempotent and does not create duplicate ward records."""
