@@ -69,7 +69,14 @@ def health_check():
 
 @app.post("/api/refresh")
 def refresh_weather(db: Session = Depends(get_db)):
-    return ingest_all_wards_weather(db)
+    summary = ingest_all_wards_weather(db)
+    wards_total = db.query(Ward).count()
+    if summary.get("wards_processed", 0) == 0 and wards_total > 0:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"All {wards_total} wards failed weather ingestion with no cached readings available: {summary.get('errors', [])}",
+        )
+    return summary
 
 
 @app.get("/api/wards/{id}")
@@ -100,13 +107,13 @@ def get_ward_risk_slice(
             detail=f"Ward with id {id} ({ward.ward_number}) is missing geographic coordinates.",
         )
 
-    # 1. Fetch live weather and 5-day forecast from Open-Meteo
+    # 1. Fetch live weather and 5-day forecast from Open-Meteo (with fallback to cache)
     try:
-        weather_data = fetch_weather(ward.latitude, ward.longitude)
+        weather_data = fetch_weather(ward.latitude, ward.longitude, db=db, ward_id=ward.id)
     except (WeatherFetcherError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to retrieve live weather data for ward {ward.ward_number}: {exc}",
+            detail=f"Failed to retrieve weather data for ward {ward.ward_number}: {exc}",
         ) from exc
 
     temp_c = weather_data["temp_c"]
@@ -294,7 +301,7 @@ def simulate_alert(
         risk_cat_val = latest_risk.risk_level
     else:
         try:
-            weather_data = fetch_weather(ward.latitude, ward.longitude)
+            weather_data = fetch_weather(ward.latitude, ward.longitude, db=db, ward_id=ward.id)
             heat_index_val = heat_index(weather_data["temp_c"], weather_data["humidity_pct"])
             risk_profile = compute_composite_risk(
                 heat_index_c=heat_index_val,

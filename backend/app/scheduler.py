@@ -52,6 +52,9 @@ def ingest_all_wards_weather(db: Optional[Session] = None) -> Dict[str, Any]:
     wards_processed = 0
     readings_inserted = 0
     risk_scores_inserted = 0
+    live_count = 0
+    cached_count = 0
+    failed_count = 0
     errors: List[str] = []
 
     try:
@@ -64,6 +67,9 @@ def ingest_all_wards_weather(db: Optional[Session] = None) -> Dict[str, Any]:
                 "wards_processed": 0,
                 "readings_inserted": 0,
                 "risk_scores_inserted": 0,
+                "live_count": 0,
+                "cached_count": 0,
+                "failed_count": 0,
                 "errors": ["No wards found in database."],
             }
 
@@ -74,15 +80,27 @@ def ingest_all_wards_weather(db: Optional[Session] = None) -> Dict[str, Any]:
                 err_msg = f"Ward {ward.ward_number} (ID: {ward.id}) is missing geographic coordinates."
                 logger.error(err_msg)
                 errors.append(err_msg)
+                failed_count += 1
                 continue
 
             try:
-                weather_data = fetch_weather(ward.latitude, ward.longitude)
+                weather_data = fetch_weather(
+                    ward.latitude,
+                    ward.longitude,
+                    db=db,
+                    ward_id=ward.id,
+                )
             except (WeatherFetcherError, ValueError, Exception) as exc:
                 err_msg = f"Failed to fetch weather for ward {ward.ward_number}: {exc}"
                 logger.error(err_msg)
                 errors.append(err_msg)
+                failed_count += 1
                 continue
+
+            if weather_data.get("source") == "cached":
+                cached_count += 1
+            else:
+                live_count += 1
 
             temp_c = weather_data["temp_c"]
             humidity_pct = weather_data["humidity_pct"]
@@ -131,8 +149,10 @@ def ingest_all_wards_weather(db: Optional[Session] = None) -> Dict[str, Any]:
 
         db.commit()
         logger.info(
-            "Weather ingestion complete: %d wards processed, %d readings, %d risk scores inserted.",
+            "Weather ingestion complete: %d wards processed (%d live, %d cached), %d readings, %d risk scores inserted.",
             wards_processed,
+            live_count,
+            cached_count,
             readings_inserted,
             risk_scores_inserted,
         )
@@ -153,6 +173,9 @@ def ingest_all_wards_weather(db: Optional[Session] = None) -> Dict[str, Any]:
         "wards_processed": wards_processed,
         "readings_inserted": readings_inserted,
         "risk_scores_inserted": risk_scores_inserted,
+        "live_count": live_count,
+        "cached_count": cached_count,
+        "failed_count": failed_count,
         "errors": errors,
     }
 
