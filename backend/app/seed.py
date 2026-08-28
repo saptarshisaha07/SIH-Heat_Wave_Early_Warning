@@ -9,7 +9,13 @@ import csv
 import json
 import logging
 from pathlib import Path
+import sys
 from typing import Any, Dict, List, Optional
+
+# Ensure backend directory is on sys.path for direct execution
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
 
 from app.db.session import SessionLocal, init_db
 from app.models.advisory import Advisory
