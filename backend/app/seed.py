@@ -300,6 +300,55 @@ def seed_database(
                     session.add(new_adv)
                     adv_inserted_count += 1
 
+        # 3. Seed Baseline WeatherReadings & RiskScores for offline resilience if none exist
+        all_wards = session.query(Ward).order_by(Ward.id).all()
+        from datetime import datetime, timedelta
+        from app.models.weather import WeatherReading
+        from app.models.risk import RiskScore
+        from app.services.thermal_index import heat_index, wbgt
+        from app.services.risk_engine import compute_composite_risk
+
+        now = datetime.utcnow()
+        base_temps = [27.7, 28.2, 29.0, 27.5, 28.0]
+        base_hums = [88.0, 85.0, 82.0, 89.0, 87.0]
+        base_winds = [12.0, 10.5, 14.0, 11.0, 13.0]
+
+        for ward in all_wards:
+            reading_count = session.query(WeatherReading).filter(WeatherReading.ward_id == ward.id).count()
+            if reading_count < 3:
+                for i in range(5):
+                    reading_dt = now - timedelta(days=4 - i)
+                    t_val = round(base_temps[i] + (ward.id * 0.1), 1)
+                    h_val = round(base_hums[i], 1)
+                    w_val = round(base_winds[i], 1)
+                    hi_val = round(heat_index(t_val, h_val), 1)
+                    wbgt_val = round(wbgt(t_val, h_val, 500.0), 1)
+                    risk_prof = compute_composite_risk(hi_val, ward.vulnerability_index)
+
+                    reading = WeatherReading(
+                        ward_id=ward.id,
+                        timestamp=reading_dt,
+                        temperature=t_val,
+                        relative_humidity=h_val,
+                        wind_speed=w_val,
+                        solar_radiation=500.0,
+                        heat_index=hi_val,
+                        wet_bulb_temp=wbgt_val,
+                        apparent_temp=hi_val,
+                    )
+                    session.add(reading)
+
+                    risk_row = RiskScore(
+                        ward_id=ward.id,
+                        timestamp=reading_dt,
+                        hazard_score=risk_prof["heat_only_score"],
+                        exposure_score=float(ward.population or 50000),
+                        vulnerability_score=float(ward.vulnerability_index or 0.5),
+                        risk_score=risk_prof["composite_score"],
+                        risk_level=risk_prof["risk_category"],
+                    )
+                    session.add(risk_row)
+
         session.commit()
         logger.info(
             "Database seeding completed successfully: "
