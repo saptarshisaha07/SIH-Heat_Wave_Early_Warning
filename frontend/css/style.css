@@ -109,17 +109,28 @@ body {
     height: 28px;
 }
 
-.header-titles h1 {
-    font-size: 1.4rem;
-    font-weight: 700;
+.header-titles .brand-title {
+    font-size: 1.55rem;
+    font-weight: 800;
     color: var(--text-primary);
-    letter-spacing: -0.02em;
-    margin-bottom: 2px;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    margin: 0 0 2px 0;
 }
 
-.header-titles .subtitle {
-    font-size: 0.84rem;
+.brand-title-accent {
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+}
+
+.header-titles .brand-subtitle {
+    font-size: 0.82rem;
+    font-weight: 500;
     color: var(--text-secondary);
+    letter-spacing: 0.01em;
+    margin: 0;
 }
 
 /* Error Banner */
