@@ -7,7 +7,7 @@
   - `frontend/js/charts.js` (new file: created `renderForecastChart` with Chart.js instance destruction, dynamic `<canvas>` insertion, 5-band risk color mapping, fallback handling for empty/missing forecasts, and global window export)
   - `frontend/index.html` (added Chart.js CDN script tag and `js/charts.js` script tag in the specified load order before `js/app.js`)
   - `frontend/js/app.js` (extended `renderSidebarData` to create the "3–5 Day Forecast" section container via DOM methods and invoke `window.renderForecastChart`)
-  - `BUILD_TASKS/TASK_19.md` (task build report)
+  - `BUILD_TASKS/TASK-19-forecast-linechart.md` (task build report)
 - **Implementation Approach**:
   1. **Instance Lifecycle Management**: Maintained a module-level variable `let currentForecastChartInstance = null;` at the top of `charts.js`. Whenever `renderForecastChart` is called on a new ward click, it calls `.destroy()` on any existing instance and nulls it before dynamically creating a new `<canvas>` element. This prevents internal Chart.js state leaks and canvas stacking during repeated sidebar teardowns.
   2. **Authoritative Color Mapping**: Implemented `getRiskCategoryColor(category)` matching the 5-band heat stress scale in `map.js` and `risk_engine.py`:
