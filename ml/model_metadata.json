@@ -1,0 +1,49 @@
+{
+  "model_architecture": "RandomForestRegressor(MultiOutput)",
+  "n_estimators": 100,
+  "feature_columns": [
+    "temp_mean_lag0",
+    "temp_mean_lag1",
+    "temp_mean_lag2",
+    "humidity_lag0",
+    "humidity_lag1",
+    "wind_speed_lag0",
+    "month",
+    "day_of_year",
+    "ward_id_BBSR-01",
+    "ward_id_BBSR-02",
+    "ward_id_BBSR-03",
+    "ward_id_BBSR-04",
+    "ward_id_BBSR-05",
+    "ward_id_BBSR-06",
+    "ward_id_BBSR-07",
+    "ward_id_BBSR-08",
+    "ward_id_BBSR-09",
+    "ward_id_BBSR-10"
+  ],
+  "feature_count": 18,
+  "ward_ids": [
+    "BBSR-01",
+    "BBSR-02",
+    "BBSR-03",
+    "BBSR-04",
+    "BBSR-05",
+    "BBSR-06",
+    "BBSR-07",
+    "BBSR-08",
+    "BBSR-09",
+    "BBSR-10"
+  ],
+  "target_columns": [
+    "target_heat_index_t1",
+    "target_heat_index_t2",
+    "target_heat_index_t3"
+  ],
+  "evaluation_metrics_mae_c": {
+    "mae_t1_c": 1.3796,
+    "mae_t2_c": 1.8251,
+    "mae_t3_c": 1.9091,
+    "overall_mae_c": 1.7046
+  },
+  "test_cutoff_date": "2025-10-02"
+}
