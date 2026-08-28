@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Application controller for Bhubaneswar Heatwave Early Warning System.
  * Connects Leaflet map marker clicks to the backend API and renders ward risk slice in the sidebar.
  */
@@ -156,6 +156,20 @@ function renderSidebarData(data) {
     }
 
     sidebar.appendChild(riskSection);
+
+    // Multi-Horizon Forecast Section
+    const forecastSection = document.createElement('div');
+    forecastSection.className = 'sidebar-section';
+
+    const forecastTitle = document.createElement('h3');
+    forecastTitle.textContent = '3–5 Day Forecast';
+    forecastSection.appendChild(forecastTitle);
+
+    sidebar.appendChild(forecastSection);
+
+    if (typeof window.renderForecastChart === 'function') {
+        window.renderForecastChart(data.forecast, forecastSection);
+    }
 }
 
 /**
