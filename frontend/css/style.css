@@ -79,8 +79,38 @@ body {
     box-shadow: var(--shadow-card);
 }
 
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.brand-logo-badge {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(245, 158, 11, 0.18));
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.brand-logo-badge:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 22px rgba(245, 158, 11, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.brand-logo-svg {
+    width: 28px;
+    height: 28px;
+}
+
 .header-titles h1 {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     font-weight: 700;
     color: var(--text-primary);
     letter-spacing: -0.02em;
@@ -88,7 +118,7 @@ body {
 }
 
 .header-titles .subtitle {
-    font-size: 0.88rem;
+    font-size: 0.84rem;
     color: var(--text-secondary);
 }
 
