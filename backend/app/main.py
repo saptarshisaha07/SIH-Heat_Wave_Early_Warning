@@ -1,9 +1,11 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, status
+import httpx
+from fastapi import Depends, FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -344,6 +346,42 @@ def simulate_alert(
     db.refresh(log_entry)
 
     return alert_payload
+
+
+@app.get("/tiles/{z}/{x}/{y}.png")
+async def proxy_tile(z: int, x: int, y: int):
+    """Proxy map tile requests to CARTO basemaps (or OSM fallback) hiding CARTO_API_KEY from the browser."""
+    carto_key = os.getenv("CARTO_API_KEY", "").strip()
+    if carto_key:
+        subdomain = ("a", "b", "c", "d")[(x + y) % 4]
+        target_url = f"https://{subdomain}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png?key={carto_key}"
+    else:
+        # Fallback to OpenStreetMap tile server when no CARTO API key is set in environment
+        target_url = f"https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                target_url,
+                headers={"User-Agent": "HeatWaveEarlyWarning/1.0"},
+            )
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=resp.status_code,
+                    detail=f"Upstream tile server returned status {resp.status_code}",
+                )
+            return Response(
+                content=resp.content,
+                media_type=resp.headers.get("content-type", "image/png"),
+                headers={
+                    "Cache-Control": "public, max-age=86400",
+                },
+            )
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch map tile from upstream provider: {exc}",
+        )
 
 
 # Static frontend mounting (MUST be mounted after all /api/ and other backend routes)

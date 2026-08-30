@@ -3,8 +3,6 @@ const BHUBANESWAR_COORDS = [20.2961, 85.8245];
 const INITIAL_ZOOM = 12;
 const GEOJSON_URL = '/api/risk-map';
 
-const CARTO_API_KEY = 'cb1_2hv1_1_c5c94b5aadeaa289343a7178';
-
 let geojsonLayerInstance = null;
 
 function showError(message) {
@@ -95,19 +93,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Initialize Leaflet map
     const map = L.map('map').setView(BHUBANESWAR_COORDS, INITIAL_ZOOM);
 
-    // 2. Add Dark Cartography tiles (uses native CARTO Dark Matter when CARTO_API_KEY is provided)
-    const isCartoActive = Boolean(CARTO_API_KEY && CARTO_API_KEY.trim().length > 0);
-    const tileUrl = isCartoActive
-        ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY.trim()}`
-        : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-
+    // 2. Add Dark Cartography tiles via backend proxy (hides API key from client)
+    const tileUrl = '/tiles/{z}/{x}/{y}.png';
     const tileOptions = {
         maxZoom: 20,
-        subdomains: 'abcd',
-        attribution: isCartoActive
-            ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        className: isCartoActive ? '' : 'dark-map-tiles'
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
     };
 
     L.tileLayer(tileUrl, tileOptions).addTo(map);
